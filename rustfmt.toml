@@ -1,0 +1,16 @@
+version = "Two"
+edition = "2021"
+unstable_features = true
+control_brace_style = "ClosingNextLine"
+combine_control_expr = false
+fn_params_layout = "Compressed" 
+hex_literal_case = "Lower"
+imports_granularity = "Module"
+normalize_comments = true
+wrap_comments = true
+reorder_imports = true
+reorder_impl_items = true
+reorder_modules = true
+group_imports = "StdExternalCrate"
+format_strings = true
+overflow_delimited_expr = true
