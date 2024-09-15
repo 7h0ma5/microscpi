@@ -15,10 +15,10 @@
 //! }
 //!
 //! #[scpi::interface]
-//! impl<'a> ExampleInterface {
+//! impl ExampleInterface {
 //!     #[scpi(cmd = "SYSTem:VALue?")]
-//!     pub async fn system_value(&mut self) -> scpi::Result<'a> {
-//!         Ok(self.value.into())
+//!     pub async fn system_value(&mut self) -> Result<u64, scpi::Error> {
+//!         Ok(self.value)
 //!     }
 //! }
 //!

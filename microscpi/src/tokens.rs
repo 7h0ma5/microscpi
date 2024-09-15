@@ -45,7 +45,7 @@ impl<'a> Tokenizer<'a> {
         })
     }
 
-    /// Read a whitespace token (IEC 60488-2:2004 7.4.1.2).
+    /// Read a whitespace token (IEEE 488.2 7.4.1.2).
     fn whitespace(&mut self) -> ScanResult<'a> {
         self.take_until(|c| !matches!(*c, 0u8..=9u8 | 11u8..=32u8))
             .map(|_| ScanResult::Ok(Token::Whitespace))
