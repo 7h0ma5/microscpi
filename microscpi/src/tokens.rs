@@ -66,7 +66,7 @@ impl<'a> Tokenizer<'a> {
 
     pub fn next_token(&mut self) -> ScanResult<'a> {
         match self.input.first() {
-            Some(0u8..=9u8 | 11u8..32u8) => self.whitespace(),
+            Some(0u8..=9u8 | 11u8..=32u8) => self.whitespace(),
             Some(b':') => {
                 self.input = &self.input[1..];
                 ScanResult::Ok(Token::Colon)

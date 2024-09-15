@@ -31,6 +31,7 @@ impl<'c, I: for<'i> Interface<'i>> Context<I> {
 
     fn reset(&mut self) {
         self.current_node = I::root_node();
+        self.parser = Parser::new();
     }
 
     pub async fn process<'a>(

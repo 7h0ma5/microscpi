@@ -43,7 +43,7 @@ impl TestInterface {
 
     #[scpi(cmd = "MATH:OPeration:MULTiply?")]
     pub async fn math_multiply(&mut self, a: u64, b: u64) -> Result<u64, scpi::Error> {
-        Ok((a * b).into())
+        Ok(a * b)
     }
 }
 
@@ -121,19 +121,19 @@ async fn test_invalid_command() {
     let (mut context, mut output) = setup();
 
     assert_eq!(
-        context.process("*IDN\r\n".as_bytes(), &mut output).await,
+        context.process("*IDN\n".as_bytes(), &mut output).await,
         Err(scpi::Error::InvalidCommand)
     );
     assert_eq!(
-        context.process("FOO\r\n".as_bytes(), &mut output).await,
+        context.process("FOO\n".as_bytes(), &mut output).await,
         Err(scpi::Error::InvalidCommand)
     );
     assert_eq!(
-        context.process("FOO:BAR\r\n".as_bytes(), &mut output).await,
+        context.process("FOO:BAR\n".as_bytes(), &mut output).await,
         Err(scpi::Error::InvalidCommand)
     );
     assert_eq!(
-        context.process("SYST:FOO\r\n".as_bytes(), &mut output).await,
+        context.process("SYST:FOO\n".as_bytes(), &mut output).await,
         Err(scpi::Error::InvalidCommand)
     );
 }
@@ -141,8 +141,8 @@ async fn test_invalid_command() {
 #[tokio::test]
 async fn test_arguments() {
     let (mut context, mut output) = setup();
-    context.process("MATH:OP:MULT? 123,456\r\n".as_bytes(), &mut output).await.unwrap();
-    assert_eq!(output, "56088\r\n");
+    context.process("MATH:OP:MULT? 123,456\n".as_bytes(), &mut output).await.unwrap();
+    assert_eq!(output, "56088\n");
 }
 
 #[tokio::test]
