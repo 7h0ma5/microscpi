@@ -28,7 +28,7 @@
 //!     let interface = ExampleInterface { value: 42 };
 //!
 //!     let mut context = scpi::Context::new(interface);
-//!     context.process(b"SYSTEM:VAL?\n", &mut output).await;
+//!     context.process_buffer(b"SYSTEM:VAL?\n", &mut output).await;
 //!
 //!     assert_eq!(output, "42\n");
 //! }

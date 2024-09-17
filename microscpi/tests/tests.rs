@@ -57,21 +57,21 @@ fn setup() -> (Context<TestInterface>, String) {
 #[tokio::test]
 async fn test_idn() {
     let (mut context, mut output) = setup();
-    context.process("*IDN?\r\n".as_bytes(), &mut output).await.unwrap();
+    context.process_buffer("*IDN?\r\n".as_bytes(), &mut output).await.unwrap();
     assert_eq!(context.interface.result, Some(TestResult::IdnOk));
 }
 
 #[tokio::test]
 async fn test_rst() {
     let (mut context, mut output) = setup();
-    context.process("*RST\r\n".as_bytes(), &mut output).await.unwrap();
+    context.process_buffer("*RST\r\n".as_bytes(), &mut output).await.unwrap();
     assert_eq!(context.interface.result, Some(TestResult::ResetOk));
 }
 
 #[tokio::test]
 async fn test_a_short() {
     let (mut context, mut output) = setup();
-    context.process("TST:A\r\n".as_bytes(), &mut output).await.unwrap();
+    context.process_buffer("TST:A\r\n".as_bytes(), &mut output).await.unwrap();
     assert_eq!(context.interface.result, Some(TestResult::TestA));
 }
 
@@ -79,7 +79,7 @@ async fn test_a_short() {
 async fn test_a_long() {
     let (mut context, mut output) = setup();
     context
-        .process("SYSTEM:TEST:A\r\n".as_bytes(), &mut output)
+        .process_buffer("SYSTEM:TEST:A\r\n".as_bytes(), &mut output)
         .await
         .unwrap();
     assert_eq!(context.interface.result, Some(TestResult::TestA));
@@ -89,7 +89,7 @@ async fn test_a_long() {
 async fn test_value_string() {
     let (mut context, mut output) = setup();
     
-    context.process("VAL:STR?\r\n".as_bytes(), &mut output).await.unwrap();
+    context.process_buffer("VAL:STR?\r\n".as_bytes(), &mut output).await.unwrap();
 
     assert_eq!(output, "\"Hello World\"\n");
 }
@@ -99,19 +99,19 @@ async fn test_terminators() {
     let (mut context, mut output) = setup();
 
     assert_eq!(
-        context.process("*IDN?\r\n".as_bytes(), &mut output).await,
+        context.process_buffer("*IDN?\r\n".as_bytes(), &mut output).await,
         Ok(&[] as &[u8])
     );
     assert_eq!(
-        context.process("*IDN?\n".as_bytes(), &mut output).await,
+        context.process_buffer("*IDN?\n".as_bytes(), &mut output).await,
         Ok(&[] as &[u8])
     );
     assert_eq!(
-        context.process("*IDN?\r\n".as_bytes(), &mut output).await,
+        context.process_buffer("*IDN?\r\n".as_bytes(), &mut output).await,
         Ok(&[] as &[u8])
     );
     assert_eq!(
-        context.process("*IDN?\n\r".as_bytes(), &mut output).await,
+        context.process_buffer("*IDN?\n\r".as_bytes(), &mut output).await,
         Ok(&[b'\r'] as &[u8])
     );
 }
@@ -121,27 +121,37 @@ async fn test_invalid_command() {
     let (mut context, mut output) = setup();
 
     assert_eq!(
-        context.process("*IDN\n".as_bytes(), &mut output).await,
-        Err(scpi::Error::InvalidCommand)
+        context.process_buffer("*IDN\n".as_bytes(), &mut output).await,
+        Err(scpi::Error::UndefinedHeader)
     );
     assert_eq!(
-        context.process("FOO\n".as_bytes(), &mut output).await,
-        Err(scpi::Error::InvalidCommand)
+        context.process_buffer("FOO\n".as_bytes(), &mut output).await,
+        Err(scpi::Error::UndefinedHeader)
     );
     assert_eq!(
-        context.process("FOO:BAR\n".as_bytes(), &mut output).await,
-        Err(scpi::Error::InvalidCommand)
+        context.process_buffer("FOO:BAR\n".as_bytes(), &mut output).await,
+        Err(scpi::Error::UndefinedHeader)
     );
     assert_eq!(
-        context.process("SYST:FOO\n".as_bytes(), &mut output).await,
-        Err(scpi::Error::InvalidCommand)
+        context.process_buffer("SYST:FOO\n".as_bytes(), &mut output).await,
+        Err(scpi::Error::UndefinedHeader)
+    );
+}
+
+#[tokio::test]
+async fn test_invalid_character() {
+    let (mut context, mut output) = setup();
+
+    assert_eq!(
+        context.process_buffer("*IDN!\n".as_bytes(), &mut output).await,
+        Err(scpi::Error::InvalidCharacter)
     );
 }
 
 #[tokio::test]
 async fn test_arguments() {
     let (mut context, mut output) = setup();
-    context.process("MATH:OP:MULT? 123,456\n".as_bytes(), &mut output).await.unwrap();
+    context.process_buffer("MATH:OP:MULT? 123,456\n".as_bytes(), &mut output).await.unwrap();
     assert_eq!(output, "56088\n");
 }
 
@@ -150,22 +160,22 @@ async fn test_invalid_arguments() {
     let (mut context, mut output) = setup();
 
     assert_eq!(
-        context.process("SYSTEM:TEST:A 123 456\r\n".as_bytes(), &mut output).await,
-        Err(scpi::Error::ParseError)
+        context.process_buffer("SYSTEM:TEST:A 123 456\r\n".as_bytes(), &mut output).await,
+        Err(scpi::Error::InvalidSeparator)
     );
 
     assert_eq!(
-        context.process("SYSTEM:TEST:A 123,,456\r\n".as_bytes(), &mut output).await,
-        Err(scpi::Error::ParseError)
+        context.process_buffer("SYSTEM:TEST:A 123,,456\r\n".as_bytes(), &mut output).await,
+        Err(scpi::Error::InvalidSeparator)
     );
 
     assert_eq!(
-        context.process("SYSTEM:TEST:A ,123\r\n".as_bytes(), &mut output).await,
-        Err(scpi::Error::ParseError)
+        context.process_buffer("SYSTEM:TEST:A ,123\r\n".as_bytes(), &mut output).await,
+        Err(scpi::Error::InvalidSeparator)
     );
 
     assert_eq!(
-        context.process("SYSTEM:TEST:A,123\r\n".as_bytes(), &mut output).await,
-        Err(scpi::Error::ParseError)
+        context.process_buffer("SYSTEM:TEST:A,123\r\n".as_bytes(), &mut output).await,
+        Err(scpi::Error::InvalidSeparator)
     );
 }

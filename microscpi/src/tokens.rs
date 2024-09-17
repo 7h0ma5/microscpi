@@ -1,7 +1,4 @@
-#[derive(Debug)]
-pub enum Error {
-    InvalidToken,
-}
+use crate::Error;
 
 #[derive(Debug)]
 pub enum Token<'a> {
@@ -89,7 +86,7 @@ impl<'a> Tokenizer<'a> {
                 self.input = &self.input[1..];
                 ScanResult::Ok(Token::Terminator)
             },
-            Some(_) => ScanResult::Err(Error::InvalidToken),
+            Some(_) => ScanResult::Err(Error::InvalidCharacter),
             None => {
                 if !self.input.is_empty() {
                     ScanResult::Incomplete(self.input)

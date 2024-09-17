@@ -44,7 +44,7 @@ impl Parser {
         loop {
             let token = match tokenizer.next_token() {
                 ScanResult::Ok(token) => token,
-                ScanResult::Err(_err) => return ParseResult::Err(Error::ParseError),
+                ScanResult::Err(error) => return ParseResult::Err(error),
                 ScanResult::Incomplete(remaining) => return ParseResult::Incomplete(remaining),
                 ScanResult::Done => return ParseResult::Done,
             };
@@ -58,6 +58,16 @@ impl Parser {
                 }
                 (_, Token::Whitespace) => {
                     // ignore
+                }
+                (
+                    ParserState::PathSeparator
+                    | ParserState::ArgumentSeparator
+                    | ParserState::Argument
+                    | ParserState::Whitespace,
+                    Token::Terminator,
+                ) => {
+                    self.state = ParserState::Start;
+                    return ParseResult::Terminator;
                 }
                 (ParserState::Start, Token::Terminator) => {
                     // ignore
@@ -74,6 +84,9 @@ impl Parser {
                 (ParserState::PathSeparator, Token::Colon) => {
                     self.state = ParserState::Path;
                 }
+                (ParserState::PathSeparator, _) => {
+                    return ParseResult::Err(Error::InvalidSeparator);
+                }
                 (ParserState::Argument, Token::Number(value)) => {
                     self.state = ParserState::ArgumentSeparator;
                     let number = str::from_utf8(value).unwrap();
@@ -87,18 +100,11 @@ impl Parser {
                 (ParserState::ArgumentSeparator, Token::Comma) => {
                     self.state = ParserState::Argument;
                 }
-                (
-                    ParserState::PathSeparator
-                    | ParserState::ArgumentSeparator
-                    | ParserState::Argument
-                    | ParserState::Whitespace,
-                    Token::Terminator,
-                ) => {
-                    self.state = ParserState::Start;
-                    return ParseResult::Terminator;
+                (ParserState::ArgumentSeparator, _) => {
+                    return ParseResult::Err(Error::InvalidSeparator);
                 }
                 _ => {
-                    return ParseResult::Err(Error::ParseError);
+                    return ParseResult::Err(Error::SyntaxError);
                 }
             }
         }

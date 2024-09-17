@@ -194,7 +194,7 @@ pub fn interface(_attr: TokenStream, item: TokenStream) -> TokenStream {
             ) -> Result<scpi::Value<'i>, scpi::Error> {
                 match command_id {
                     #(#command_items),*,
-                    _ => Err(scpi::Error::InvalidCommand)
+                    _ => Err(scpi::Error::UndefinedHeader)
                 }
            }
         }
