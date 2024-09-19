@@ -5,12 +5,12 @@ use crate::{Error, Value};
 
 #[derive(PartialEq, Clone, Copy)]
 enum ParserState {
-    // Expect either a command to begin or infinite terminators
+    // Expect either a command to begin or infinite terminators.
     Start,
     // Expect a command path component as the next token.
     Path,
-    // Expect a path seperator (`;`) as the next token. Alternatively
-    // continue with parsing the arguments when a question mark or whitespace is encountered.
+    // Expect a path seperator (`;`) as the next token. Alternatively  continue with parsing the
+    // arguments when a question mark or whitespace is encountered.
     PathSeparator,
     // Expect whitespace as the next token. This is the divider between the command path and the
     // arguments.

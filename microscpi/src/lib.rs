@@ -50,10 +50,10 @@ pub use microscpi_macros::interface;
 pub use tree::{CommandId, ScpiTreeNode};
 pub use value::Value;
 
-pub type Result<'a> = core::result::Result<Value<'a>, Error>;
-
 #[doc(hidden)]
 pub trait Interface<'i> {
     fn root_node() -> &'static ScpiTreeNode;
-    async fn run_command(&'i mut self, command_id: CommandId, args: &[Value<'i>]) -> Result<'i>;
+    async fn run_command(
+        &'i mut self, command_id: CommandId, args: &[Value<'i>],
+    ) -> Result<Value<'i>, Error>;
 }

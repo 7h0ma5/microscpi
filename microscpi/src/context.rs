@@ -44,6 +44,8 @@ impl<I: for<'i> Interface<'i>> Context<I> {
     }
 
     pub fn push_error(&mut self, error: Error) {
+        #[cfg(feature = "defmt")]
+        defmt::trace!("Push Error: {}", error);
         if self.errors.push_back(error).is_err() {
             // If the queue is full, change the most recent added item to an *Queue
             // Overflow* error, as specified in IEEE 488.2, 21.8.1.
@@ -138,7 +140,7 @@ impl<I: for<'i> Interface<'i>> Context<I> {
             let mut read_from: usize = next_index;
 
             #[cfg(feature = "defmt")]
-            defmt::info!("Read from: {}, Read to: {}", read_from, read_to);
+            defmt::trace!("Read from: {}, Read to: {}", read_from, read_to);
 
             while let Some(offset) = buf[read_from..read_to].iter().position(|b| *b == b'\n') {
                 let terminator_index = read_from + offset;
@@ -147,7 +149,7 @@ impl<I: for<'i> Interface<'i>> Context<I> {
                 self.process_buffer(data, &mut output_buffer).await;
 
                 #[cfg(feature = "defmt")]
-                defmt::info!("Data: {}", data);
+                defmt::trace!("Data: {}", data);
 
                 if !output_buffer.is_empty() {
                     output.write_all(&output_buffer).await.unwrap();
@@ -157,9 +159,6 @@ impl<I: for<'i> Interface<'i>> Context<I> {
 
                 read_from = terminator_index + 1;
             }
-
-            #[cfg(feature = "defmt")]
-            defmt::info!("Consume {}", read_from);
 
             input.consume(read_from);
 

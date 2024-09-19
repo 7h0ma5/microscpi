@@ -97,69 +97,109 @@ impl From<()> for Value<'_> {
 }
 
 impl<'a> TryInto<&'a str> for &Value<'a> {
-    type Error = crate::Error;
+    type Error = Error;
 
     fn try_into(self) -> Result<&'a str, Self::Error> {
         match self {
             Value::String(data) => Ok(data),
-            _ => Err(Self::Error::SyntaxError),
+            _ => Err(Error::DataTypeError),
         }
+    }
+}
+
+impl<'a> TryInto<&'a str> for Value<'a> {
+    type Error = Error;
+
+    fn try_into(self) -> Result<&'a str, Self::Error> {
+        (&self).try_into()
     }
 }
 
 impl TryInto<u32> for &Value<'_> {
-    type Error = crate::Error;
+    type Error = Error;
 
     fn try_into(self) -> Result<u32, Self::Error> {
         match self {
             Value::Number(data) => {
-                u32::from_str_radix(data, 10).map_err(|_| Self::Error::SyntaxError)
+                u32::from_str_radix(data, 10).map_err(|_| Error::NumericDataError)
             }
-            Value::U32(val) => Ok(*val),
-            _ => Err(Self::Error::SyntaxError),
+            Value::U32(value) => Ok(*value),
+            _ => Err(Error::DataTypeError),
         }
+    }
+}
+
+impl TryInto<u32> for Value<'_> {
+    type Error = Error;
+
+    fn try_into(self) -> Result<u32, Self::Error> {
+        (&self).try_into()
     }
 }
 
 impl TryInto<i32> for &Value<'_> {
-    type Error = crate::Error;
+    type Error = Error;
 
     fn try_into(self) -> Result<i32, Self::Error> {
         match self {
             Value::Number(data) => {
-                i32::from_str_radix(data, 10).map_err(|_| Self::Error::SyntaxError)
+                i32::from_str_radix(data, 10).map_err(|_| Error::NumericDataError)
             }
-            Value::I32(val) => Ok(*val),
-            _ => Err(Self::Error::SyntaxError),
+            Value::I32(value) => Ok(*value),
+            _ => Err(Error::DataTypeError),
         }
+    }
+}
+
+impl TryInto<i32> for Value<'_> {
+    type Error = Error;
+
+    fn try_into(self) -> Result<i32, Self::Error> {
+        (&self).try_into()
     }
 }
 
 impl TryInto<u64> for &Value<'_> {
-    type Error = crate::Error;
+    type Error = Error;
 
     fn try_into(self) -> Result<u64, Self::Error> {
         match self {
             Value::Number(data) => {
-                u64::from_str_radix(data, 10).map_err(|_| Self::Error::SyntaxError)
+                u64::from_str_radix(data, 10).map_err(|_| Error::NumericDataError)
             }
-            Value::U64(val) => Ok(*val),
-            _ => Err(Self::Error::SyntaxError),
+            Value::U64(value) => Ok(*value),
+            _ => Err(Error::DataTypeError),
         }
     }
 }
 
+impl TryInto<u64> for Value<'_> {
+    type Error = Error;
+
+    fn try_into(self) -> Result<u64, Self::Error> {
+        (&self).try_into()
+    }
+}
+
 impl TryInto<i64> for &Value<'_> {
-    type Error = crate::Error;
+    type Error = Error;
 
     fn try_into(self) -> Result<i64, Self::Error> {
         match self {
             Value::Number(data) => {
-                i64::from_str_radix(data, 10).map_err(|_| Self::Error::SyntaxError)
+                i64::from_str_radix(data, 10).map_err(|_| Error::NumericDataError)
             }
             Value::I64(val) => Ok(*val),
-            _ => Err(Self::Error::SyntaxError),
+            _ => Err(Error::DataTypeError),
         }
+    }
+}
+
+impl TryInto<i64> for Value<'_> {
+    type Error = Error;
+
+    fn try_into(self) -> Result<i64, Self::Error> {
+        (&self).try_into()
     }
 }
 
@@ -168,9 +208,45 @@ impl TryInto<bool> for &Value<'_> {
 
     fn try_into(self) -> Result<bool, Self::Error> {
         match self {
-            Value::Mnemonic("ON" | "on") | Value::Number("1") => Ok(true),
-            Value::Mnemonic("OFF" | "off") | Value::Number("0") => Ok(false),
-            _ => Err(Error::DataTypeError),
+            Value::Mnemonic("ON" | "on")
+            | Value::Mnemonic("TRUE" | "true")
+            | Value::Number("1") => Ok(true),
+            Value::Mnemonic("OFF" | "off")
+            | Value::Mnemonic("FALSE" | "false")
+            | Value::Number("0") => Ok(false),
+            _ => Err(Error::IllegalParameterValue),
         }
     }
+}
+
+impl TryInto<bool> for Value<'_> {
+    type Error = Error;
+
+    fn try_into(self) -> Result<bool, Self::Error> {
+        (&self).try_into()
+    }
+}
+
+#[test]
+pub fn test_bool() {
+    assert_eq!(Value::Bool(false).to_string(), "0");
+    assert_eq!(Value::Bool(true).to_string(), "1");
+
+    assert_eq!(Value::Mnemonic("ON").try_into(), Ok(true));
+    assert_eq!(Value::Mnemonic("on").try_into(), Ok(true));
+    assert_eq!(Value::Number("1").try_into(), Ok(true));
+
+    assert_eq!(Value::Mnemonic("OFF").try_into(), Ok(false));
+    assert_eq!(Value::Mnemonic("off").try_into(), Ok(false));
+    assert_eq!(Value::Number("0").try_into(), Ok(false));
+
+    assert_eq!(
+        Value::Mnemonic("10").try_into(),
+        Err::<bool, Error>(Error::IllegalParameterValue)
+    );
+
+    assert_eq!(
+        Value::Mnemonic("NO").try_into(),
+        Err::<bool, Error>(Error::IllegalParameterValue)
+    );
 }

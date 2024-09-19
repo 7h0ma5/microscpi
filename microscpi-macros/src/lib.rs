@@ -125,6 +125,7 @@ pub fn interface(_attr: TokenStream, item: TokenStream) -> TokenStream {
     for command in commands {
         let command_id = command.id;
         let func = command.fn_ident.clone();
+        let arg_count = command.args.len();
 
         let args = command
             .args
@@ -132,14 +133,19 @@ pub fn interface(_attr: TokenStream, item: TokenStream) -> TokenStream {
             .enumerate()
             .map(|(id, _arg)| -> Expr {
                 syn::parse_quote! {
-                    args.get(#id).unwrap().try_into().unwrap()
+                    args.get(#id).unwrap().try_into()?
                 }
             })
             .collect::<Punctuated<Expr, Comma>>();
 
         command_items.push(quote! {
             #command_id => {
-                self.#func(#args).await.map(Into::<scpi::Value<'i>>::into)
+                if args.len() != #arg_count {
+                    Err(microscpi::Error::UnexpectedNumberOfParameters)
+                }
+                else {
+                    self.#func(#args).await.map(Into::<microscpi::Value<'i>>::into)
+                }
             }
         });
     }
@@ -168,7 +174,7 @@ pub fn interface(_attr: TokenStream, item: TokenStream) -> TokenStream {
         };
 
         let node_item = quote! {
-            static #node_name: scpi::ScpiTreeNode = scpi::ScpiTreeNode {
+            static #node_name: microscpi::ScpiTreeNode = microscpi::ScpiTreeNode {
                 children: &[
                     #(#entries),*
                 ],
@@ -183,18 +189,18 @@ pub fn interface(_attr: TokenStream, item: TokenStream) -> TokenStream {
     quote! {
         #(#nodes)*
         #input
-        impl<'i> scpi::Interface<'i> for #impl_ty {
-            fn root_node() -> &'static scpi::ScpiTreeNode {
+        impl<'i> microscpi::Interface<'i> for #impl_ty {
+            fn root_node() -> &'static microscpi::ScpiTreeNode {
                 &SCPI_NODE_0
             }
             async fn run_command(
                 &'i mut self,
-                command_id: scpi::CommandId,
-                args: &[scpi::Value<'i>]
-            ) -> Result<scpi::Value<'i>, scpi::Error> {
+                command_id: microscpi::CommandId,
+                args: &[microscpi::Value<'i>]
+            ) -> Result<microscpi::Value<'i>, microscpi::Error> {
                 match command_id {
                     #(#command_items),*,
-                    _ => Err(scpi::Error::UndefinedHeader)
+                    _ => Err(microscpi::Error::UndefinedHeader)
                 }
            }
         }
