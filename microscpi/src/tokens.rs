@@ -85,7 +85,7 @@ impl<'a> Tokenizer<'a> {
             Some(b'\n') => {
                 self.input = &self.input[1..];
                 ScanResult::Ok(Token::Terminator)
-            },
+            }
             Some(_) => ScanResult::Err(Error::InvalidCharacter),
             None => {
                 if !self.input.is_empty() {

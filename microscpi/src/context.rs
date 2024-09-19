@@ -1,25 +1,32 @@
 #[cfg(feature = "embedded-io-async")]
 use embedded_io_async::{BufRead, Write};
-use heapless::Vec;
+use heapless::{Deque, Vec};
 
 use crate::parser::{ParseResult, Parser};
 use crate::tokens::Tokenizer;
 use crate::{Error, Interface, ScpiTreeNode, Value};
 
+const MAX_ERRORS: usize = 10;
 const MAX_ARGS: usize = 10;
 #[cfg(feature = "embedded-io-async")]
 const OUTPUT_BUFFER_SIZE: usize = 100;
 
 #[derive(Default)]
-pub struct CommandCall<'a> {
+struct CommandCall<'a> {
     pub query: bool,
     pub args: Vec<Value<'a>, MAX_ARGS>,
 }
 
+/// SCPI Context
+///
+/// The SCPI context contains the current state of the SCPI interface including
+/// the parser state, the current selected node in the SCPI command tree and the
+/// error queue.
 pub struct Context<I: for<'i> Interface<'i>> {
     pub interface: I,
     current_node: &'static ScpiTreeNode,
     parser: Parser,
+    errors: heapless::Deque<Error, MAX_ERRORS>,
 }
 
 impl<I: for<'i> Interface<'i>> Context<I> {
@@ -27,7 +34,22 @@ impl<I: for<'i> Interface<'i>> Context<I> {
         Context {
             interface,
             current_node: I::root_node(),
-            parser: Parser::new()
+            parser: Parser::new(),
+            errors: Deque::new(),
+        }
+    }
+
+    pub fn pop_error(&mut self) -> Option<Error> {
+        self.errors.pop_front()
+    }
+
+    pub fn push_error(&mut self, error: Error) {
+        if self.errors.push_back(error).is_err() {
+            // If the queue is full, change the most recent added item to an *Queue
+            // Overflow* error, as specified in IEEE 488.2, 21.8.1.
+            if let Some(value) = self.errors.back_mut() {
+                *value = Error::QueueOverflow;
+            }
         }
     }
 
@@ -38,7 +60,7 @@ impl<I: for<'i> Interface<'i>> Context<I> {
 
     pub async fn process_buffer<'a>(
         &mut self, input: &'a [u8], response: &mut impl core::fmt::Write,
-    ) -> Result<&'a [u8], Error> {
+    ) -> Option<&'a [u8]> {
         let mut tokenizer = Tokenizer::new(input);
 
         let mut call = CommandCall::default();
@@ -51,11 +73,14 @@ impl<I: for<'i> Interface<'i>> Context<I> {
                     }
                     else {
                         self.reset();
-                        return Err(Error::UndefinedHeader);
+                        self.push_error(Error::UndefinedHeader);
                     }
                 }
                 ParseResult::Argument(value) => {
-                    call.args.push(value).or(Err(Error::UnexpectedNumberOfParameters))?;
+                    if call.args.push(value).is_err() {
+                        // Too many arguments.
+                        self.push_error(Error::UnexpectedNumberOfParameters);
+                    }
                 }
                 ParseResult::Query => {
                     call.query = true;
@@ -69,34 +94,41 @@ impl<I: for<'i> Interface<'i>> Context<I> {
                     };
 
                     if let Some(command) = command {
-                        let result = self.interface.run_command(command, &call.args).await?;
-                        if result != Value::Void {
-                            writeln!(response, "{}", result)?;
+                        let result = self.interface.run_command(command, &call.args).await;
+                        if let Err(error) = result {
+                            self.push_error(error);
                         }
+                        else if result != Ok(Value::Void) {
+                            writeln!(response, "{}", result.unwrap()).unwrap();
+                        }
+
                         call = Default::default();
                         self.reset();
                     }
                     else {
-                        return Err(Error::UndefinedHeader);
+                        self.push_error(Error::UndefinedHeader);
                     }
                 }
                 ParseResult::Incomplete(remaining) => {
-                    return Ok(remaining);
+                    return Some(remaining);
                 }
                 ParseResult::Done => {
-                    return Ok(&[]);
+                    return None;
                 }
                 ParseResult::Err(error) => {
-                    return Err(error);
+                    self.push_error(error);
+                    return None;
                 }
             }
         }
     }
 
     #[cfg(feature = "embedded-io-async")]
-    pub async fn process<R, W>(
-        &mut self, mut input: R, mut output: W,
-    ) -> Result<(), R::Error> where R: BufRead, W: Write {
+    pub async fn process<R, W>(&mut self, mut input: R, mut output: W) -> Result<(), R::Error>
+    where
+        R: BufRead,
+        W: Write,
+    {
         let mut next_index: usize = 0;
         let mut output_buffer: heapless::Vec<u8, OUTPUT_BUFFER_SIZE> = Vec::new();
 
@@ -112,7 +144,7 @@ impl<I: for<'i> Interface<'i>> Context<I> {
                 let terminator_index = read_from + offset;
 
                 let data = &buf[read_from..=terminator_index];
-                self.process_buffer(data, &mut output_buffer).await.unwrap();
+                self.process_buffer(data, &mut output_buffer).await;
 
                 #[cfg(feature = "defmt")]
                 defmt::info!("Data: {}", data);

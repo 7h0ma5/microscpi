@@ -9,7 +9,7 @@
 //! # Minimal Example
 //! ```
 //! use microscpi as scpi;
-//! 
+//!
 //! pub struct ExampleInterface {
 //!     value: u64
 //! }
@@ -39,8 +39,8 @@
 
 mod context;
 mod error;
-pub mod tokens;
 mod parser;
+pub mod tokens;
 mod tree;
 mod value;
 

@@ -79,17 +79,16 @@ fn extract_commands(input: &mut ItemImpl) -> Vec<Rc<CommandDefinition>> {
 
             if let Some(name_value) = name_attr_value {
                 let cmd = Command::try_from(name_value.as_ref()).unwrap();
-                let args = item_fn.sig.inputs.iter().filter_map(|arg| {
-                    match arg {
-                        syn::FnArg::Typed(arg_type) => {
-                            Some(*arg_type.ty.clone())
-                        }
-                        syn::FnArg::Receiver(_) => {
-                            None
-                        }
-                    }
-                }).collect();
- 
+                let args = item_fn
+                    .sig
+                    .inputs
+                    .iter()
+                    .filter_map(|arg| match arg {
+                        syn::FnArg::Typed(arg_type) => Some(*arg_type.ty.clone()),
+                        syn::FnArg::Receiver(_) => None,
+                    })
+                    .collect();
+
                 let cmd_def = Rc::new(CommandDefinition {
                     id: commands.len(),
                     command: cmd.clone(),
@@ -105,7 +104,8 @@ fn extract_commands(input: &mut ItemImpl) -> Vec<Rc<CommandDefinition>> {
 
 /// Macro attribute to define an SCPI interface.
 ///
-/// This attribute will process an `impl` block and register the SCPI commands defined within it.
+/// This attribute will process an `impl` block and register the SCPI commands
+/// defined within it.
 #[proc_macro_attribute]
 pub fn interface(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(item as ItemImpl);

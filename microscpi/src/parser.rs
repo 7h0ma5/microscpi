@@ -71,7 +71,7 @@ impl Parser {
                 }
                 (ParserState::Start, Token::Terminator) => {
                     // ignore
-                },
+                }
                 (ParserState::PathSeparator, Token::QuestionMark) => {
                     self.state = ParserState::Whitespace;
                     return ParseResult::Query;

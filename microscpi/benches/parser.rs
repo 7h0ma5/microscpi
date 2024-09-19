@@ -8,9 +8,7 @@ fn bench_tree_lookup(c: &mut Criterion) {
 
     c.bench_function("benches", |b| {
         b.iter(|| {
-            std::hint::black_box(
-                while let ScanResult::Ok(_token) = tokenizer.next_token() {}
-           );
+            std::hint::black_box(while let ScanResult::Ok(_token) = tokenizer.next_token() {});
         });
     });
 
@@ -19,8 +17,5 @@ fn bench_tree_lookup(c: &mut Criterion) {
     }
 }
 
-criterion_group!(
-    benches,
-    bench_tree_lookup,
-);
+criterion_group!(benches, bench_tree_lookup,);
 criterion_main!(benches);

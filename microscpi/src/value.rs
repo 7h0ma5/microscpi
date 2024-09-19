@@ -1,5 +1,6 @@
 use core::fmt::Display;
 use core::str;
+
 use crate::Error;
 
 /// SCPI value
@@ -104,7 +105,7 @@ impl<'a> TryInto<&'a str> for &Value<'a> {
             _ => Err(Self::Error::SyntaxError),
         }
     }
-} 
+}
 
 impl TryInto<u32> for &Value<'_> {
     type Error = crate::Error;
@@ -162,17 +163,14 @@ impl TryInto<i64> for &Value<'_> {
     }
 }
 
-
 impl TryInto<bool> for &Value<'_> {
     type Error = Error;
 
     fn try_into(self) -> Result<bool, Self::Error> {
         match self {
-            Value::Mnemonic("ON" | "on") |
-            Value::Number("1") => Ok(true),
-            Value::Mnemonic("OFF" | "off") |
-            Value::Number("0") => Ok(false),
-            _ => Err(Error::DataTypeError)
+            Value::Mnemonic("ON" | "on") | Value::Number("1") => Ok(true),
+            Value::Mnemonic("OFF" | "off") | Value::Number("0") => Ok(false),
+            _ => Err(Error::DataTypeError),
         }
     }
 }

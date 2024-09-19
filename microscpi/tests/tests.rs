@@ -8,7 +8,9 @@ pub enum TestResult {
     TestAQ,
 }
 
-pub struct TestInterface { result: Option<TestResult> }
+pub struct TestInterface {
+    result: Option<TestResult>,
+}
 
 #[scpi::interface]
 impl TestInterface {
@@ -48,30 +50,28 @@ impl TestInterface {
 }
 
 fn setup() -> (Context<TestInterface>, String) {
-    let interface = TestInterface {
-        result: None,
-    };
+    let interface = TestInterface { result: None };
     (scpi::Context::new(interface), String::new())
 }
 
 #[tokio::test]
 async fn test_idn() {
     let (mut context, mut output) = setup();
-    context.process_buffer("*IDN?\r\n".as_bytes(), &mut output).await.unwrap();
+    context.process_buffer(b"*IDN?\n", &mut output).await;
     assert_eq!(context.interface.result, Some(TestResult::IdnOk));
 }
 
 #[tokio::test]
 async fn test_rst() {
     let (mut context, mut output) = setup();
-    context.process_buffer("*RST\r\n".as_bytes(), &mut output).await.unwrap();
+    context.process_buffer(b"*RST\n", &mut output).await;
     assert_eq!(context.interface.result, Some(TestResult::ResetOk));
 }
 
 #[tokio::test]
 async fn test_a_short() {
     let (mut context, mut output) = setup();
-    context.process_buffer("TST:A\r\n".as_bytes(), &mut output).await.unwrap();
+    context.process_buffer(b"TST:A\n", &mut output).await;
     assert_eq!(context.interface.result, Some(TestResult::TestA));
 }
 
@@ -79,17 +79,16 @@ async fn test_a_short() {
 async fn test_a_long() {
     let (mut context, mut output) = setup();
     context
-        .process_buffer("SYSTEM:TEST:A\r\n".as_bytes(), &mut output)
-        .await
-        .unwrap();
+        .process_buffer(b"SYSTEM:TEST:A\r\n", &mut output)
+        .await;
     assert_eq!(context.interface.result, Some(TestResult::TestA));
 }
 
 #[tokio::test]
 async fn test_value_string() {
     let (mut context, mut output) = setup();
-    
-    context.process_buffer("VAL:STR?\r\n".as_bytes(), &mut output).await.unwrap();
+
+    context.process_buffer(b"VAL:STR?\n", &mut output).await;
 
     assert_eq!(output, "\"Hello World\"\n");
 }
@@ -99,20 +98,17 @@ async fn test_terminators() {
     let (mut context, mut output) = setup();
 
     assert_eq!(
-        context.process_buffer("*IDN?\r\n".as_bytes(), &mut output).await,
-        Ok(&[] as &[u8])
+        context.process_buffer(b"*IDN?\r\n", &mut output).await,
+        None
+    );
+    assert_eq!(context.process_buffer(b"*IDN?\n", &mut output).await, None);
+    assert_eq!(
+        context.process_buffer(b"*IDN?\r\n", &mut output).await,
+        None
     );
     assert_eq!(
-        context.process_buffer("*IDN?\n".as_bytes(), &mut output).await,
-        Ok(&[] as &[u8])
-    );
-    assert_eq!(
-        context.process_buffer("*IDN?\r\n".as_bytes(), &mut output).await,
-        Ok(&[] as &[u8])
-    );
-    assert_eq!(
-        context.process_buffer("*IDN?\n\r".as_bytes(), &mut output).await,
-        Ok(&[b'\r'] as &[u8])
+        context.process_buffer(b"*IDN?\n\r", &mut output).await,
+        Some(&[b'\r'] as &[u8])
     );
 }
 
@@ -120,38 +116,39 @@ async fn test_terminators() {
 async fn test_invalid_command() {
     let (mut context, mut output) = setup();
 
-    assert_eq!(
-        context.process_buffer("*IDN\n".as_bytes(), &mut output).await,
-        Err(scpi::Error::UndefinedHeader)
-    );
-    assert_eq!(
-        context.process_buffer("FOO\n".as_bytes(), &mut output).await,
-        Err(scpi::Error::UndefinedHeader)
-    );
-    assert_eq!(
-        context.process_buffer("FOO:BAR\n".as_bytes(), &mut output).await,
-        Err(scpi::Error::UndefinedHeader)
-    );
-    assert_eq!(
-        context.process_buffer("SYST:FOO\n".as_bytes(), &mut output).await,
-        Err(scpi::Error::UndefinedHeader)
-    );
+    context.process_buffer(b"*IDN\n", &mut output).await;
+    assert_eq!(context.pop_error(), Some(scpi::Error::UndefinedHeader));
+    assert_eq!(context.pop_error(), None);
+
+    context.process_buffer(b"FOO\n", &mut output).await;
+    assert_eq!(context.pop_error(), Some(scpi::Error::UndefinedHeader));
+    assert_eq!(context.pop_error(), None);
+
+    context.process_buffer(b"FOO:BAR\n", &mut output).await;
+    assert_eq!(context.pop_error(), Some(scpi::Error::UndefinedHeader));
+    assert_eq!(context.pop_error(), None);
+
+    context.process_buffer(b"SYST:FOO\n", &mut output).await;
+    assert_eq!(context.pop_error(), Some(scpi::Error::UndefinedHeader));
+    assert_eq!(context.pop_error(), None);
 }
 
 #[tokio::test]
 async fn test_invalid_character() {
     let (mut context, mut output) = setup();
 
-    assert_eq!(
-        context.process_buffer("*IDN!\n".as_bytes(), &mut output).await,
-        Err(scpi::Error::InvalidCharacter)
-    );
+    context
+        .process_buffer("*IDN!\n".as_bytes(), &mut output)
+        .await;
+    assert_eq!(context.pop_error(), Some(scpi::Error::InvalidCharacter));
 }
 
 #[tokio::test]
 async fn test_arguments() {
     let (mut context, mut output) = setup();
-    context.process_buffer("MATH:OP:MULT? 123,456\n".as_bytes(), &mut output).await.unwrap();
+    context
+        .process_buffer(b"MATH:OP:MULT? 123,456\n", &mut output)
+        .await;
     assert_eq!(output, "56088\n");
 }
 
@@ -159,23 +156,25 @@ async fn test_arguments() {
 async fn test_invalid_arguments() {
     let (mut context, mut output) = setup();
 
-    assert_eq!(
-        context.process_buffer("SYSTEM:TEST:A 123 456\r\n".as_bytes(), &mut output).await,
-        Err(scpi::Error::InvalidSeparator)
-    );
+    context
+        .process_buffer(b"SYSTEM:TEST:A 123 456\n", &mut output)
+        .await;
+    assert_eq!(context.pop_error(), Some(scpi::Error::InvalidSeparator));
 
-    assert_eq!(
-        context.process_buffer("SYSTEM:TEST:A 123,,456\r\n".as_bytes(), &mut output).await,
-        Err(scpi::Error::InvalidSeparator)
-    );
+    context
+        .process_buffer(b"SYSTEM:TEST:A 123,,456\n", &mut output)
+        .await;
+    assert_eq!(context.pop_error(), Some(scpi::Error::InvalidSeparator));
 
-    assert_eq!(
-        context.process_buffer("SYSTEM:TEST:A ,123\r\n".as_bytes(), &mut output).await,
-        Err(scpi::Error::InvalidSeparator)
-    );
+    context
+        .process_buffer(b"SYSTEM:TEST:A ,123\n", &mut output)
+        .await;
+    assert_eq!(context.pop_error(), Some(scpi::Error::InvalidSeparator));
 
-    assert_eq!(
-        context.process_buffer("SYSTEM:TEST:A,123\r\n".as_bytes(), &mut output).await,
-        Err(scpi::Error::InvalidSeparator)
-    );
+    context
+        .process_buffer(b"SYSTEM:TEST:A,123\n", &mut output)
+        .await;
+    assert_eq!(context.pop_error(), Some(scpi::Error::InvalidSeparator));
+
+    assert_eq!(context.pop_error(), None);
 }
