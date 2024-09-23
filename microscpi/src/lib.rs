@@ -26,9 +26,9 @@
 //! pub async fn main() {
 //!     let mut output = String::new();
 //!     let interface = ExampleInterface { value: 42 };
+//!     let mut interpreter = scpi::Interpreter::new(interface);
 //!
-//!     let mut context = scpi::Context::new(interface);
-//!     context.process_buffer(b"SYSTEM:VAL?\n", &mut output).await;
+//!     interpreter.parse_and_execute(b"SYSTEM:VAL?\n", &mut output).await;
 //!
 //!     assert_eq!(output, "42\n");
 //! }
@@ -39,21 +39,22 @@
 
 mod context;
 mod error;
+mod interface;
+mod interpreter;
 mod parser;
 pub mod tokens;
 mod tree;
 mod value;
 
+const MAX_ERRORS: usize = 10;
+const MAX_ARGS: usize = 10;
+#[cfg(feature = "embedded-io-async")]
+const OUTPUT_BUFFER_SIZE: usize = 100;
+
 pub use context::Context;
 pub use error::Error;
+pub use interface::Interface;
+pub use interpreter::Interpreter;
 pub use microscpi_macros::interface;
-pub use tree::{CommandId, ScpiTreeNode};
+pub use tree::{CommandId, Node};
 pub use value::Value;
-
-#[doc(hidden)]
-pub trait Interface<'i> {
-    fn root_node() -> &'static ScpiTreeNode;
-    async fn run_command(
-        &'i mut self, command_id: CommandId, args: &[Value<'i>],
-    ) -> Result<Value<'i>, Error>;
-}

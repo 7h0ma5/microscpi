@@ -12,11 +12,58 @@ mod tree;
 use command::Command;
 use tree::Tree;
 
+enum CommandHandler {
+    UserFunction(Ident),
+    ContextFunction(&'static str),
+}
+
 struct CommandDefinition {
     pub id: usize,
     pub command: Command,
-    pub fn_ident: Ident,
+    pub handler: CommandHandler,
     pub args: Vec<Type>,
+}
+
+impl CommandDefinition {
+    fn args(&self) -> Punctuated<Expr, Comma> {
+        self.args
+            .iter()
+            .enumerate()
+            .map(|(id, _arg)| -> Expr {
+                syn::parse_quote! {
+                    args.get(#id).unwrap().try_into()?
+                }
+            })
+            .collect()
+    }
+
+    fn call(&self) -> proc_macro2::TokenStream {
+        let command_id = self.id;
+        let arg_count = self.args.len();
+        let args = self.args();
+
+        let fn_call = match &self.handler {
+            CommandHandler::UserFunction(ident) => {
+                let func = ident.clone();
+                quote! { self.#func(#args).await.map(Into::<microscpi::Value<'a>>::into) }
+            }
+            CommandHandler::ContextFunction(ident) => {
+                let func = format_ident!("{}", ident);
+                quote! { context.#func(#args).await.map(Into::<microscpi::Value<'a>>::into) }
+            }
+        };
+
+        quote! {
+            #command_id => {
+                if args.len() != #arg_count {
+                    Err(microscpi::Error::UnexpectedNumberOfParameters)
+                }
+                else {
+                    #fn_call
+                }
+            }
+        }
+    }
 }
 
 /// Extracts the `scpi` attribute from a function and returns the command name
@@ -92,7 +139,7 @@ fn extract_commands(input: &mut ItemImpl) -> Vec<Rc<CommandDefinition>> {
                 let cmd_def = Rc::new(CommandDefinition {
                     id: commands.len(),
                     command: cmd.clone(),
-                    fn_ident: item_fn.sig.ident.to_owned(),
+                    handler: CommandHandler::UserFunction(item_fn.sig.ident.to_owned()),
                     args,
                 });
                 commands.push(cmd_def.clone());
@@ -112,7 +159,16 @@ pub fn interface(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let impl_ty = input.self_ty.clone();
 
-    let commands = extract_commands(&mut input);
+    let mut commands = extract_commands(&mut input);
+
+    commands.push(
+        Rc::new(CommandDefinition {
+            id: commands.len(),
+            args: Vec::new(),
+            command: Command::try_from("SYSTem:ERRor:[NEXT]?").unwrap(),
+            handler: CommandHandler::ContextFunction("system_error_next"),
+        })
+    );
 
     let mut tree = Tree::new();
     commands
@@ -120,35 +176,8 @@ pub fn interface(_attr: TokenStream, item: TokenStream) -> TokenStream {
         .try_for_each(|cmd| tree.insert(cmd.clone()))
         .unwrap();
 
-    let mut command_items: Vec<proc_macro2::TokenStream> = Vec::new();
-
-    for command in commands {
-        let command_id = command.id;
-        let func = command.fn_ident.clone();
-        let arg_count = command.args.len();
-
-        let args = command
-            .args
-            .iter()
-            .enumerate()
-            .map(|(id, _arg)| -> Expr {
-                syn::parse_quote! {
-                    args.get(#id).unwrap().try_into()?
-                }
-            })
-            .collect::<Punctuated<Expr, Comma>>();
-
-        command_items.push(quote! {
-            #command_id => {
-                if args.len() != #arg_count {
-                    Err(microscpi::Error::UnexpectedNumberOfParameters)
-                }
-                else {
-                    self.#func(#args).await.map(Into::<microscpi::Value<'i>>::into)
-                }
-            }
-        });
-    }
+    let command_items: Vec<proc_macro2::TokenStream> =
+        commands.iter().map(|cmd| cmd.call()).collect();
 
     let mut nodes: Vec<proc_macro2::TokenStream> = Vec::new();
 
@@ -174,7 +203,7 @@ pub fn interface(_attr: TokenStream, item: TokenStream) -> TokenStream {
         };
 
         let node_item = quote! {
-            static #node_name: microscpi::ScpiTreeNode = microscpi::ScpiTreeNode {
+            static #node_name: microscpi::Node = microscpi::Node {
                 children: &[
                     #(#entries),*
                 ],
@@ -189,15 +218,16 @@ pub fn interface(_attr: TokenStream, item: TokenStream) -> TokenStream {
     quote! {
         #(#nodes)*
         #input
-        impl<'i> microscpi::Interface<'i> for #impl_ty {
-            fn root_node() -> &'static microscpi::ScpiTreeNode {
+        impl microscpi::Interface for #impl_ty {
+            fn root_node(&self) -> &'static microscpi::Node {
                 &SCPI_NODE_0
             }
-            async fn run_command(
-                &'i mut self,
+            async fn execute_command<'a>(
+                &'a mut self,
+                context: &mut microscpi::Context,
                 command_id: microscpi::CommandId,
-                args: &[microscpi::Value<'i>]
-            ) -> Result<microscpi::Value<'i>, microscpi::Error> {
+                args: &[microscpi::Value<'a>]
+            ) -> Result<microscpi::Value<'a>, microscpi::Error> {
                 match command_id {
                     #(#command_items),*,
                     _ => Err(microscpi::Error::UndefinedHeader)

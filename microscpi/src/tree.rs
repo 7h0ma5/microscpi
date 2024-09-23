@@ -9,20 +9,20 @@ pub type CommandId = usize;
 /// This struct represents a node in the SCPI command tree. Each node can hold a
 /// reference to a command, a query or both. The tree contains all possible
 /// command paths including short, long and optional path components.
-pub struct ScpiTreeNode {
-    pub children: &'static [(&'static str, &'static ScpiTreeNode)],
+pub struct Node {
+    pub children: &'static [(&'static str, &'static Node)],
     pub command: Option<CommandId>,
     pub query: Option<CommandId>,
 }
 
-impl ScpiTreeNode {
+impl Node {
     /// Searches for a path component in this node.
     ///
     /// The search is *case-insensitive*.
     ///
     /// # Returns
-    /// The ScpiTreeNode with the specified name if found.
-    pub fn child(&self, name: &str) -> Option<&'static ScpiTreeNode> {
+    /// The [Node] with the specified name if found.
+    pub fn child(&self, name: &str) -> Option<&'static Node> {
         for child in self.children {
             if child.0.eq_ignore_ascii_case(name) {
                 return Some(child.1);
@@ -32,7 +32,7 @@ impl ScpiTreeNode {
     }
 }
 
-impl PartialEq for &'static ScpiTreeNode {
+impl PartialEq for &'static Node {
     fn eq(&self, other: &Self) -> bool {
         core::ptr::eq(self, other)
     }

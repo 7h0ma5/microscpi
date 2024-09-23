@@ -1,4 +1,5 @@
-use microscpi::{self as scpi, Context};
+use microscpi::Interpreter;
+use microscpi as scpi;
 
 #[derive(Debug, PartialEq)]
 pub enum TestResult {
@@ -49,132 +50,132 @@ impl TestInterface {
     }
 }
 
-fn setup() -> (Context<TestInterface>, String) {
-    let interface = TestInterface { result: None };
-    (scpi::Context::new(interface), String::new())
+fn setup() -> (Interpreter<TestInterface>, String) {
+    let interface = Interpreter::new(TestInterface { result: None });
+    (interface, String::new())
 }
 
 #[tokio::test]
 async fn test_idn() {
-    let (mut context, mut output) = setup();
-    context.process_buffer(b"*IDN?\n", &mut output).await;
-    assert_eq!(context.interface.result, Some(TestResult::IdnOk));
+    let (mut interpreter, mut output) = setup();
+    interpreter.parse_and_execute(b"*IDN?\n", &mut output).await;
+    assert_eq!(interpreter.interface.result, Some(TestResult::IdnOk));
 }
 
 #[tokio::test]
 async fn test_rst() {
-    let (mut context, mut output) = setup();
-    context.process_buffer(b"*RST\n", &mut output).await;
-    assert_eq!(context.interface.result, Some(TestResult::ResetOk));
+    let (mut interpreter, mut output) = setup();
+    interpreter.parse_and_execute(b"*RST\n", &mut output).await;
+    assert_eq!(interpreter.interface.result, Some(TestResult::ResetOk));
 }
 
 #[tokio::test]
 async fn test_a_short() {
-    let (mut context, mut output) = setup();
-    context.process_buffer(b"TST:A\n", &mut output).await;
-    assert_eq!(context.interface.result, Some(TestResult::TestA));
+    let (mut interpreter, mut output) = setup();
+    interpreter.parse_and_execute(b"TST:A\n", &mut output).await;
+    assert_eq!(interpreter.interface.result, Some(TestResult::TestA));
 }
 
 #[tokio::test]
 async fn test_a_long() {
-    let (mut context, mut output) = setup();
-    context
-        .process_buffer(b"SYSTEM:TEST:A\r\n", &mut output)
+    let (mut interpreter, mut output) = setup();
+    interpreter
+        .parse_and_execute(b"SYSTEM:TEST:A\r\n", &mut output)
         .await;
-    assert_eq!(context.interface.result, Some(TestResult::TestA));
+    assert_eq!(interpreter.interface.result, Some(TestResult::TestA));
 }
 
 #[tokio::test]
 async fn test_value_string() {
-    let (mut context, mut output) = setup();
+    let (mut interpreter, mut output) = setup();
 
-    context.process_buffer(b"VAL:STR?\n", &mut output).await;
+    interpreter.parse_and_execute(b"VAL:STR?\n", &mut output).await;
 
     assert_eq!(output, "\"Hello World\"\n");
 }
 
 #[tokio::test]
 async fn test_terminators() {
-    let (mut context, mut output) = setup();
+    let (mut interpreter, mut output) = setup();
 
     assert_eq!(
-        context.process_buffer(b"*IDN?\r\n", &mut output).await,
+        interpreter.parse_and_execute(b"*IDN?\r\n", &mut output).await,
         None
     );
-    assert_eq!(context.process_buffer(b"*IDN?\n", &mut output).await, None);
+    assert_eq!(interpreter.parse_and_execute(b"*IDN?\n", &mut output).await, None);
     assert_eq!(
-        context.process_buffer(b"*IDN?\r\n", &mut output).await,
+        interpreter.parse_and_execute(b"*IDN?\r\n", &mut output).await,
         None
     );
     assert_eq!(
-        context.process_buffer(b"*IDN?\n\r", &mut output).await,
+        interpreter.parse_and_execute(b"*IDN?\n\r", &mut output).await,
         Some(&[b'\r'] as &[u8])
     );
 }
 
 #[tokio::test]
 async fn test_invalid_command() {
-    let (mut context, mut output) = setup();
+    let (mut interpreter, mut output) = setup();
 
-    context.process_buffer(b"*IDN\n", &mut output).await;
-    assert_eq!(context.pop_error(), Some(scpi::Error::UndefinedHeader));
-    assert_eq!(context.pop_error(), None);
+    interpreter.parse_and_execute(b"*IDN\n", &mut output).await;
+    assert_eq!(interpreter.context.pop_error(), Some(scpi::Error::UndefinedHeader));
+    assert_eq!(interpreter.context.pop_error(), None);
 
-    context.process_buffer(b"FOO\n", &mut output).await;
-    assert_eq!(context.pop_error(), Some(scpi::Error::UndefinedHeader));
-    assert_eq!(context.pop_error(), None);
+    interpreter.parse_and_execute(b"FOO\n", &mut output).await;
+    assert_eq!(interpreter.context.pop_error(), Some(scpi::Error::UndefinedHeader));
+    assert_eq!(interpreter.context.pop_error(), None);
 
-    context.process_buffer(b"FOO:BAR\n", &mut output).await;
-    assert_eq!(context.pop_error(), Some(scpi::Error::UndefinedHeader));
-    assert_eq!(context.pop_error(), None);
+    interpreter.parse_and_execute(b"FOO:BAR\n", &mut output).await;
+    assert_eq!(interpreter.context.pop_error(), Some(scpi::Error::UndefinedHeader));
+    assert_eq!(interpreter.context.pop_error(), None);
 
-    context.process_buffer(b"SYST:FOO\n", &mut output).await;
-    assert_eq!(context.pop_error(), Some(scpi::Error::UndefinedHeader));
-    assert_eq!(context.pop_error(), None);
+    interpreter.parse_and_execute(b"SYST:FOO\n", &mut output).await;
+    assert_eq!(interpreter.context.pop_error(), Some(scpi::Error::UndefinedHeader));
+    assert_eq!(interpreter.context.pop_error(), None);
 }
 
 #[tokio::test]
 async fn test_invalid_character() {
-    let (mut context, mut output) = setup();
+    let (mut interpreter, mut output) = setup();
 
-    context
-        .process_buffer("*IDN!\n".as_bytes(), &mut output)
+    interpreter
+        .parse_and_execute("*IDN!\n".as_bytes(), &mut output)
         .await;
-    assert_eq!(context.pop_error(), Some(scpi::Error::InvalidCharacter));
+    assert_eq!(interpreter.context.pop_error(), Some(scpi::Error::InvalidCharacter));
 }
 
 #[tokio::test]
 async fn test_arguments() {
-    let (mut context, mut output) = setup();
-    context
-        .process_buffer(b"MATH:OP:MULT? 123,456\n", &mut output)
+    let (mut interpreter, mut output) = setup();
+    interpreter
+        .parse_and_execute(b"MATH:OP:MULT? 123,456\n", &mut output)
         .await;
     assert_eq!(output, "56088\n");
 }
 
 #[tokio::test]
 async fn test_invalid_arguments() {
-    let (mut context, mut output) = setup();
+    let (mut interpreter, mut output) = setup();
 
-    context
-        .process_buffer(b"SYSTEM:TEST:A 123 456\n", &mut output)
+    interpreter
+        .parse_and_execute(b"SYSTEM:TEST:A 123 456\n", &mut output)
         .await;
-    assert_eq!(context.pop_error(), Some(scpi::Error::InvalidSeparator));
+    assert_eq!(interpreter.context.pop_error(), Some(scpi::Error::InvalidSeparator));
 
-    context
-        .process_buffer(b"SYSTEM:TEST:A 123,,456\n", &mut output)
+    interpreter
+        .parse_and_execute(b"SYSTEM:TEST:A 123,,456\n", &mut output)
         .await;
-    assert_eq!(context.pop_error(), Some(scpi::Error::InvalidSeparator));
+    assert_eq!(interpreter.context.pop_error(), Some(scpi::Error::InvalidSeparator));
 
-    context
-        .process_buffer(b"SYSTEM:TEST:A ,123\n", &mut output)
+    interpreter
+        .parse_and_execute(b"SYSTEM:TEST:A ,123\n", &mut output)
         .await;
-    assert_eq!(context.pop_error(), Some(scpi::Error::InvalidSeparator));
+    assert_eq!(interpreter.context.pop_error(), Some(scpi::Error::InvalidSeparator));
 
-    context
-        .process_buffer(b"SYSTEM:TEST:A,123\n", &mut output)
+    interpreter
+        .parse_and_execute(b"SYSTEM:TEST:A,123\n", &mut output)
         .await;
-    assert_eq!(context.pop_error(), Some(scpi::Error::InvalidSeparator));
+    assert_eq!(interpreter.context.pop_error(), Some(scpi::Error::InvalidSeparator));
 
-    assert_eq!(context.pop_error(), None);
+    assert_eq!(interpreter.context.pop_error(), None);
 }

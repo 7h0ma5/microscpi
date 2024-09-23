@@ -4,7 +4,7 @@ use core::str;
 use crate::Error;
 
 /// SCPI value
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Value<'a> {
     Void,
     String(&'a str),

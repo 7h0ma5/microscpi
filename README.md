@@ -36,8 +36,8 @@ pub async fn main() {
     let mut output = String::new();
     let interface = ExampleInterface { value: 42 };
 
-    let mut context = scpi::Context::new(interface);
-    context.process(b"SYSTEM:VAL?\n", &mut output).await;
+    let mut interpreter = scpi::Interpreter::new(interface);
+    interpreter.parse_and_execute(b"SYSTEM:VAL?\n", &mut output).await;
 
     assert_eq!(output, "42\n");
 }
