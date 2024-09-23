@@ -165,8 +165,26 @@ pub fn interface(_attr: TokenStream, item: TokenStream) -> TokenStream {
         Rc::new(CommandDefinition {
             id: commands.len(),
             args: Vec::new(),
+            command: Command::try_from("SYSTem:VERSion?").unwrap(),
+            handler: CommandHandler::ContextFunction("system_version"),
+        })
+    );
+
+    commands.push(
+        Rc::new(CommandDefinition {
+            id: commands.len(),
+            args: Vec::new(),
             command: Command::try_from("SYSTem:ERRor:[NEXT]?").unwrap(),
             handler: CommandHandler::ContextFunction("system_error_next"),
+        })
+    );
+
+    commands.push(
+        Rc::new(CommandDefinition {
+            id: commands.len(),
+            args: Vec::new(),
+            command: Command::try_from("SYSTem:ERRor:COUNt?").unwrap(),
+            handler: CommandHandler::ContextFunction("system_error_count"),
         })
     );
 

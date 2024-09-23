@@ -311,50 +311,56 @@ impl Error {
     }
 }
 
+impl Into<&'static str> for Error {
+    fn into(self) -> &'static str {
+        match self {
+            Error::Custom(_, name) => name,
+            Error::CommandError => "Command error",
+            Error::InvalidCharacter => "Invalid character",
+            Error::SyntaxError => "Syntax Error",
+            Error::UndefinedHeader => "Undefined header",
+            Error::HeaderSuffixOutOfRange => "Header suffix out of range",
+            Error::InvalidCharacterInNumber => "Invalid character in number",
+            Error::InvalidCharacterData => "Invalid character data",
+            Error::ExecutionError => "Execution error",
+            Error::QueryError => "Formatter error",
+            Error::UnexpectedNumberOfParameters => "Argument overflow",
+            Error::InvalidSeparator => "Invalid separator",
+            Error::DataTypeError => "Data type error",
+            Error::ParameterNotAllowed => "Parameter not allowed",
+            Error::MissingParameter => "Missing parameter",
+            Error::SystemError => "System error",
+            Error::QueueOverflow => "Queue overflow",
+            Error::CommandHeaderError => "Command header error",
+            Error::HeaderSeparatorError => "Header separator error",
+            Error::ProgramMnemonicTooLong => "Program mnemonic too long",
+            Error::NumericDataError => "Numeric data error",
+            Error::ExponentTooLarge => "Exponent too large",
+            Error::TooManyDigits => "Too many digits",
+            Error::NumericDataNotAllowed => "Numeric data not allowed",
+            Error::InvalidWhileInLocal => "Invalid while in local",
+            Error::CommandProtected => "Command protected",
+            Error::TriggerError => "Trigger error",
+            Error::ParameterError => "Parameter error",
+            Error::SettingsConflict => "Settings conflict",
+            Error::DataOutOfRange => "Data out of range",
+            Error::TooMuchData => "Too much data",
+            Error::IllegalParameterValue => "Illegal parameter value",
+            Error::HardwareError => "Hardware error",
+            Error::DeviceSpecificError => "Device specific error",
+            Error::StorageFault => "Storage fault",
+            Error::SelfTestFailed => "Self test failed",
+            Error::CalibrationFailed => "Calibration failed",
+            Error::CommunicationError => "Communication error",
+            Error::InputBufferOverrun => "Input buffer overrun",
+            Error::TimeoutError => "Timeout error",
+        }
+    }
+}
+
 impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Error::Custom(_, name) => write!(f, "{}", name),
-            Error::CommandError => write!(f, "Command error"),
-            Error::InvalidCharacter => write!(f, "Invalid character"),
-            Error::SyntaxError => write!(f, "Syntax Error"),
-            Error::UndefinedHeader => write!(f, "Undefined header"),
-            Error::HeaderSuffixOutOfRange => write!(f, "Header suffix out of range"),
-            Error::InvalidCharacterInNumber => write!(f, "Invalid character in number"),
-            Error::InvalidCharacterData => write!(f, "Invalid character data"),
-            Error::ExecutionError => write!(f, "Execution error"),
-            Error::QueryError => write!(f, "Formatter error"),
-            Error::UnexpectedNumberOfParameters => write!(f, "Argument overflow"),
-            Error::InvalidSeparator => write!(f, "Invalid separator"),
-            Error::DataTypeError => write!(f, "Data type error"),
-            Error::ParameterNotAllowed => write!(f, "Parameter not allowed"),
-            Error::MissingParameter => write!(f, "Missing parameter"),
-            Error::SystemError => write!(f, "System error"),
-            Error::QueueOverflow => write!(f, "Queue overflow"),
-            Error::CommandHeaderError => write!(f, "Command header error"),
-            Error::HeaderSeparatorError => write!(f, "Header separator error"),
-            Error::ProgramMnemonicTooLong => write!(f, "Program mnemonic too long"),
-            Error::NumericDataError => write!(f, "Numeric data error"),
-            Error::ExponentTooLarge => write!(f, "Exponent too large"),
-            Error::TooManyDigits => write!(f, "Too many digits"),
-            Error::NumericDataNotAllowed => write!(f, "Numeric data not allowed"),
-            Error::InvalidWhileInLocal => write!(f, "Invalid while in local"),
-            Error::CommandProtected => write!(f, "Command protected"),
-            Error::TriggerError => write!(f, "Trigger error"),
-            Error::ParameterError => write!(f, "Parameter error"),
-            Error::SettingsConflict => write!(f, "Settings conflict"),
-            Error::DataOutOfRange => write!(f, "Data out of range"),
-            Error::TooMuchData => write!(f, "Too much data"),
-            Error::IllegalParameterValue => write!(f, "Illegal parameter value"),
-            Error::HardwareError => write!(f, "Hardware error"),
-            Error::DeviceSpecificError => write!(f, "Device specific error"),
-            Error::StorageFault => write!(f, "Storage fault"),
-            Error::SelfTestFailed => write!(f, "Self test failed"),
-            Error::CalibrationFailed => write!(f, "Calibration failed"),
-            Error::CommunicationError => write!(f, "Communication error"),
-            Error::InputBufferOverrun => write!(f, "Input buffer overrun"),
-            Error::TimeoutError => write!(f, "Timeout error"),
-        }
+        write!(f, "{}", Into::<&str>::into(*self))
     }
 }
 

@@ -1,8 +1,12 @@
 use heapless::Vec;
+#[cfg(feature = "embedded-io-async")]
+use embedded_io_async::{BufRead, Write};
 
 use crate::parser::{ParseResult, Parser};
 use crate::tokens::Tokenizer;
 use crate::{Context, Error, Interface, Node, Value, MAX_ARGS};
+#[cfg(feature = "embedded-io-async")]
+use crate::OUTPUT_BUFFER_SIZE;
 
 pub struct Interpreter<I: Interface> {
     pub interface: I,
@@ -117,7 +121,7 @@ impl<I: Interface> Interpreter<I> {
                 let terminator_index = read_from + offset;
 
                 let data = &buf[read_from..=terminator_index];
-                self.process_buffer(data, &mut output_buffer).await;
+                self.parse_and_execute(data, &mut output_buffer).await;
 
                 #[cfg(feature = "defmt")]
                 defmt::trace!("Data: {}", data);

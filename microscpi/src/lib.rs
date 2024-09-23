@@ -46,10 +46,12 @@ pub mod tokens;
 mod tree;
 mod value;
 
-const MAX_ERRORS: usize = 10;
-const MAX_ARGS: usize = 10;
+pub const SCPI_STD_VERSION: &str = "1999.0";
+
+pub const MAX_ERRORS: usize = 10;
+pub const MAX_ARGS: usize = 10;
 #[cfg(feature = "embedded-io-async")]
-const OUTPUT_BUFFER_SIZE: usize = 100;
+pub const OUTPUT_BUFFER_SIZE: usize = 100;
 
 pub use context::Context;
 pub use error::Error;

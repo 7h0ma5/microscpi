@@ -1,3 +1,4 @@
+use core::cell::RefCell;
 use core::fmt::Display;
 use core::str;
 
@@ -92,6 +93,18 @@ impl From<f64> for Value<'_> {
 
 impl From<()> for Value<'_> {
     fn from(_: ()) -> Self {
+        Value::Void
+    }
+}
+
+impl<'a, const N: usize> From<&'a [Value<'a>; N]> for Value<'a> {
+    fn from(value: &'a [Value<'a>; N]) -> Value<'a> {
+        Value::Void
+    }
+}
+
+impl<'a, const N: usize> From<[Value<'a>; N]> for Value<'a> {
+    fn from(value: [Value<'a>; N]) -> Value<'a> {
         Value::Void
     }
 }
