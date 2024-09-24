@@ -1,6 +1,6 @@
 use heapless::Deque;
 
-use crate::{Value, Error, MAX_ERRORS, SCPI_STD_VERSION};
+use crate::{Error, Mnemonic, MAX_ERRORS, SCPI_STD_VERSION};
 
 /// SCPI Context
 ///
@@ -36,16 +36,16 @@ impl Context {
 }
 
 impl Context {
-    pub async fn system_version(&mut self) -> Result<Value<'static>, Error> {
-        Ok(Value::Mnemonic(SCPI_STD_VERSION))
+    pub async fn system_version(&mut self) -> Result<Mnemonic, Error> {
+        Ok(Mnemonic(SCPI_STD_VERSION))
     }
 
-    pub async fn system_error_next<'a>(&'a mut self) -> Result<[Value<'static>; 2], Error> {
+    pub async fn system_error_next<'a>(&'a mut self) -> Result<(i16, &'static str), Error> {
         if let Some(error) = self.pop_error() {
-            Ok([Value::I32(error.number() as i32), Value::String("")])
+            Ok((error.number(), error.into()))
         }
         else {
-            Ok([Value::I32(0), Value::String("")])
+            Ok((0, ""))
         }
     }
 

@@ -71,12 +71,15 @@ impl<I: Interface> Interpreter<I> {
                     };
 
                     if let Some(command) = command {
-                        let result = self.interface.execute_command(&mut self.context, command, &call.args).await;
+                        let result = self.interface.execute_command(&mut self.context, command, &call.args, response).await;
+
                         if let Err(error) = result {
                             self.context.push_error(error);
                         }
-                        else if result != Ok(Value::Void) {
-                            writeln!(response, "{}", result.unwrap()).unwrap();
+                        else {
+                            if let Err(error) = response.write_char('\n') {
+                                self.context.push_error(error.into());
+                            }
                         }
 
                         call = Default::default();

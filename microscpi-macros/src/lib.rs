@@ -45,11 +45,11 @@ impl CommandDefinition {
         let fn_call = match &self.handler {
             CommandHandler::UserFunction(ident) => {
                 let func = ident.clone();
-                quote! { self.#func(#args).await.map(Into::<microscpi::Value<'a>>::into) }
+                quote! { self.#func(#args).await? }
             }
             CommandHandler::ContextFunction(ident) => {
                 let func = format_ident!("{}", ident);
-                quote! { context.#func(#args).await.map(Into::<microscpi::Value<'a>>::into) }
+                quote! { context.#func(#args).await? }
             }
         };
 
@@ -59,7 +59,9 @@ impl CommandDefinition {
                     Err(microscpi::Error::UnexpectedNumberOfParameters)
                 }
                 else {
-                    #fn_call
+                    let result = #fn_call;
+                    result.scpi_fmt(response).unwrap();
+                    Ok(())
                 }
             }
         }
@@ -244,8 +246,10 @@ pub fn interface(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 &'a mut self,
                 context: &mut microscpi::Context,
                 command_id: microscpi::CommandId,
-                args: &[microscpi::Value<'a>]
-            ) -> Result<microscpi::Value<'a>, microscpi::Error> {
+                args: &[microscpi::Value<'a>],
+                response: &mut impl core::fmt::Write
+            ) -> Result<(), microscpi::Error> {
+                use microscpi::Response;
                 match command_id {
                     #(#command_items),*,
                     _ => Err(microscpi::Error::UndefinedHeader)

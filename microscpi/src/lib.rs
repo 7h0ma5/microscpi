@@ -58,5 +58,6 @@ pub use error::Error;
 pub use interface::Interface;
 pub use interpreter::Interpreter;
 pub use microscpi_macros::interface;
+pub use response::{Mnemonic, Response};
 pub use tree::{CommandId, Node};
 pub use value::Value;

@@ -9,5 +9,6 @@ pub trait Interface {
     /// arguments.
     async fn execute_command<'a>(
         &'a mut self, context: &mut Context, command_id: CommandId, args: &[Value<'a>],
-    ) -> Result<Value<'a>, Error>;
+        response: &mut impl core::fmt::Write,
+    ) -> Result<(), Error>;
 }

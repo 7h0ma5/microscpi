@@ -179,3 +179,24 @@ async fn test_invalid_arguments() {
 
     assert_eq!(interpreter.context.pop_error(), None);
 }
+
+#[tokio::test]
+async fn test_next_error() {
+    let (mut interpreter, mut output) = setup();
+
+    interpreter.context.push_error(scpi::Error::SystemError);
+
+    interpreter
+        .parse_and_execute(b"SYST:ERR:NEXT?\n", &mut output)
+        .await;
+
+    assert_eq!(output, "-310,\"System error\"\n");
+
+    output.clear();
+
+    interpreter
+        .parse_and_execute(b"SYST:ERR:NEXT?\n", &mut output)
+        .await;
+
+    assert_eq!(output, "0,\"\"\n");
+}
