@@ -1,24 +1,15 @@
-use heapless::Vec;
 #[cfg(feature = "embedded-io-async")]
 use embedded_io_async::{BufRead, Write};
 
-use crate::parser::{ParseResult, Parser};
-use crate::tokens::Tokenizer;
-use crate::{Context, Error, Interface, Node, Value, MAX_ARGS};
+use crate::parser::{self, CommandCall};
 #[cfg(feature = "embedded-io-async")]
 use crate::OUTPUT_BUFFER_SIZE;
+use crate::{Context, Error, Interface, Node};
 
 pub struct Interpreter<I: Interface> {
     pub interface: I,
     pub context: Context,
     current_node: &'static Node,
-    parser: Parser,
-}
-
-#[derive(Default)]
-struct CommandCall<'a> {
-    pub query: bool,
-    pub args: Vec<Value<'a>, MAX_ARGS>,
 }
 
 impl<I: Interface> Interpreter<I> {
@@ -26,81 +17,62 @@ impl<I: Interface> Interpreter<I> {
         Interpreter {
             context: Context::new(),
             current_node: interface.root_node(),
-            parser: Parser::new(),
             interface,
         }
     }
 
     pub fn reset(&mut self) {
-        self.parser = Parser::new();
         self.current_node = self.interface.root_node();
     }
 
-    pub async fn parse_and_execute<'a>(
-        &mut self, input: &'a [u8], response: &mut impl core::fmt::Write,
-    ) -> Option<&'a [u8]> {
-        let mut tokenizer = Tokenizer::new(input);
-        let mut call = CommandCall::default();
+    pub async fn execute(
+        &mut self, call: &CommandCall<'_>, response: &mut impl core::fmt::Write,
+    ) -> Result<(), Error> {
+        let command = if call.query {
+            call.node.query
+        }
+        else {
+            call.node.command
+        };
 
-        loop {
-            match self.parser.parse_next(&mut tokenizer) {
-                ParseResult::Path(path) => {
-                    if let Some(child) = self.current_node.child(path) {
-                        self.current_node = child;
-                    }
-                    else {
-                        self.reset();
-                        self.context.push_error(Error::UndefinedHeader);
-                    }
-                }
-                ParseResult::Argument(value) => {
-                    if call.args.push(value).is_err() {
-                        // Too many arguments.
-                        self.context.push_error(Error::UnexpectedNumberOfParameters);
-                    }
-                }
-                ParseResult::Query => {
-                    call.query = true;
-                }
-                ParseResult::Terminator => {
-                    let command = if call.query {
-                        self.current_node.query
-                    }
-                    else {
-                        self.current_node.command
-                    };
+        if let Some(command) = command {
+            self.interface
+                .execute_command(&mut self.context, command, &call.args, response)
+                .await?;
 
-                    if let Some(command) = command {
-                        let result = self.interface.execute_command(&mut self.context, command, &call.args, response).await;
-
-                        if let Err(error) = result {
-                            self.context.push_error(error);
-                        }
-                        else {
-                            if let Err(error) = response.write_char('\n') {
-                                self.context.push_error(error.into());
-                            }
-                        }
-
-                        call = Default::default();
-                        self.reset();
-                    }
-                    else {
-                        self.context.push_error(Error::UndefinedHeader);
-                    }
-                }
-                ParseResult::Incomplete(remaining) => {
-                    return Some(remaining);
-                }
-                ParseResult::Done => {
-                    return None;
-                }
-                ParseResult::Err(error) => {
-                    self.context.push_error(error);
-                    return None;
-                }
+            if call.query {
+                response.write_char('\n')?;
             }
         }
+        else {
+            return Err(Error::UndefinedHeader);
+        }
+
+        Ok(())
+    }
+
+    pub async fn parse_and_execute<'a>(
+        &mut self, mut input: &'a [u8], response: &mut impl core::fmt::Write,
+    ) -> &'a [u8] {
+        while !input.is_empty() {
+            let result = parser::parse(self.current_node, input);
+
+            if let Err(error) = result {
+                self.context.push_error(error.into());
+                return input;
+            }
+
+            let (i, call) = result.unwrap();
+
+            if let Err(error) = self.execute(&call, response).await {
+                self.context.push_error(error);
+            }
+
+            self.reset();
+
+            input = i;
+        }
+        &[][..]
     }
 
     #[cfg(feature = "embedded-io-async")]

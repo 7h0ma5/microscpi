@@ -1,3 +1,5 @@
+use crate::parser::ParseError;
+
 /// SCPI error
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
@@ -41,6 +43,12 @@ pub enum Error {
     /// encountered.
     DataTypeError,
 
+    /// Get not allowed (-105)
+    ///
+    /// A Group Execute Trigger was received within a program message (see IEEE
+    /// 488.2, 7.7).
+    GetNotAllowed,
+
     /// Parameter not allowed (-108)
     ///
     /// More parameters were received than expected for the header; for example,
@@ -49,8 +57,8 @@ pub enum Error {
     ParameterNotAllowed,
 
     /// Missing parameter (-109)
-    /// Fewer parameters were recieved than required for the header; for
     ///
+    /// Fewer parameters were recieved than required for the header; for
     /// example, the `*EMC` common command requires one parameter, so
     /// receiving `*EMC` is not allowed.
     MissingParameter,
@@ -125,11 +133,113 @@ pub enum Error {
     /// accept one in this position for the header.
     NumericDataNotAllowed,
 
+    /// Suffix error (-130)
+    ///
+    /// This error, as well as errors -131 through -139, are generated when
+    /// parsing a suffix. This particular error message should be used if the
+    /// device cannot detect a more specific error.
+    SuffixError,
+
+    /// Invalid suffix (-131)
+    ///
+    /// The suffix does not follow the syntax described in IEEE 488.2, 7.7.3.2,
+    /// or the suffix is inappropriate for this device.
+    InvalidSuffix,
+
+    /// Suffix too long (-134)
+    ///
+    /// The suffix contained more than 12 characters (see IEEE 488.2, 7.7.3.4).
+    SuffixTooLong,
+
+    /// Suffix not allowed (-138)
+    ///
+    /// A suffix was encountered after a numeric element which does not allow
+    /// suffixes.
+    SuffixNotAllowed,
+
+    /// Character data error (-140)
+    ///
+    /// This error, as well as errors -141 through -149, are generated when
+    /// parsing a character data element. This particular error message
+    /// should be used if the device cannot detect a more specific error.
+    CharacterDataError,
+
     /// Invalid character data (-141)
     ///
     /// Either the character data element contains an invalid character or the
     /// particular element received is not valid for the header.
     InvalidCharacterData,
+
+    /// Character data too long (-144)
+    ///
+    /// The character data element contains more than twelve characters (see
+    /// IEEE 488.2, 7.7.1.4).
+    CharacterDataTooLong,
+
+    /// Character not allowed (-148)
+    ///
+    /// A legal character data element was encountered where prohibited by the
+    /// device.
+    CharacterNotAllowed,
+
+    /// String data error (-150)
+    ///
+    /// This error, as well as errors -151 through -159, are generated when
+    /// parsing a string data element. This particular error message should
+    /// be used if the device cannot detect a more specific error.
+    StringDataError,
+
+    /// Invalid string data (-151)
+    ///
+    /// A string data element was expected, but was invalid for some reason (see
+    /// IEEE 488.2, 7.7.5.2); for example, an END message was received before
+    /// the terminal quote character.
+    InvalidStringData,
+
+    /// String data not allowed (-158)
+    ///
+    /// A string data element was encountered but was not allowed by the device
+    /// at this point in parsing.
+    StringDataNotAllowed,
+
+    /// Block data error (-160)
+    ///
+    /// This error, as well as errors -161 through -169, are generated when
+    /// parsing a block data element. This particular error message should
+    /// be used if the device cannot detect a more specific error.
+    BlockDataError,
+
+    /// Invalid block data (-161)
+    ///
+    /// A block data element was expected, but was invalid for some reason (see
+    /// IEEE 488.2, 7.7.6.2); for example, an END message was received
+    /// before the length was satisfied.
+    InvalidBlockData,
+
+    /// Block data not allowed (-168)
+    ///
+    /// A legal block data element was encountered but was not allowed by the
+    /// device at this point in parsing.
+    BlockDataNotAllowed,
+
+    /// Expression error (-170)
+    ///
+    /// This error, as well as errors -171 through -179, are generated when
+    /// parsing an expression data element. This particular error message
+    /// should be used if the device cannot detect a more specific error.
+    ExpressionError,
+
+    /// Invalid expression (-171)
+    ///
+    /// The expression data element was invalid (see IEEE 488.2, 7.7.7.2); for
+    /// example, unmatched parentheses or an illegal character.
+    InvalidExpression,
+
+    /// Expression data not allowed (-178)
+    ///
+    /// A legal expression data was encountered but was not allowed by the
+    /// device at this point in parsing.
+    ExpressionDataNotAllowed,
 
     /// Execution error (-200)
     ///
@@ -194,6 +304,23 @@ pub enum Error {
     ///
     /// Used where exact value, from a list of possibles, was expected.
     IllegalParameterValue,
+
+    /// Out of memory (-225)
+    ///
+    /// The device has insufficent memory to perform the requested operation.
+    OutOfMemory,
+
+    /// Lists not same length (-226)
+    ///
+    /// Attempted to use LIST structure having individual LIST’s of unequal
+    /// lengths.
+    ListsNotSameLength,
+
+    /// Data corrupt or stale (-230)
+    ///
+    /// Possibly invalid data; new reading started but not completed since last
+    /// access.
+    DataCorruptOrStale,
 
     /// Hardware Error (-240)
     ///
@@ -273,6 +400,7 @@ impl Error {
             Error::SyntaxError => -102,
             Error::InvalidSeparator => -103,
             Error::DataTypeError => -104,
+            Error::GetNotAllowed => -105,
             Error::ParameterNotAllowed => -108,
             Error::MissingParameter => -109,
             Error::CommandHeaderError => -110,
@@ -286,7 +414,23 @@ impl Error {
             Error::ExponentTooLarge => -123,
             Error::TooManyDigits => -124,
             Error::NumericDataNotAllowed => -128,
+            Error::SuffixError => -130,
+            Error::InvalidSuffix => -131,
+            Error::SuffixTooLong => -134,
+            Error::SuffixNotAllowed => -138,
+            Error::CharacterDataError => -140,
             Error::InvalidCharacterData => -141,
+            Error::CharacterDataTooLong => -144,
+            Error::CharacterNotAllowed => -148,
+            Error::StringDataError => -150,
+            Error::InvalidStringData => -151,
+            Error::StringDataNotAllowed => -158,
+            Error::BlockDataError => -160,
+            Error::InvalidBlockData => -161,
+            Error::BlockDataNotAllowed => -168,
+            Error::ExpressionError => -170,
+            Error::InvalidExpression => -171,
+            Error::ExpressionDataNotAllowed => -178,
             Error::ExecutionError => -200,
             Error::InvalidWhileInLocal => -201,
             Error::CommandProtected => -203,
@@ -296,6 +440,9 @@ impl Error {
             Error::DataOutOfRange => -222,
             Error::TooMuchData => -223,
             Error::IllegalParameterValue => -224,
+            Error::OutOfMemory => -225,
+            Error::ListsNotSameLength => -226,
+            Error::DataCorruptOrStale => -230,
             Error::HardwareError => -240,
             Error::DeviceSpecificError => -300,
             Error::SystemError => -310,
@@ -311,9 +458,9 @@ impl Error {
     }
 }
 
-impl Into<&'static str> for Error {
-    fn into(self) -> &'static str {
-        match self {
+impl From<Error> for &str {
+    fn from(error: Error) -> &'static str {
+        match error {
             Error::Custom(_, name) => name,
             Error::CommandError => "Command error",
             Error::InvalidCharacter => "Invalid character",
@@ -354,6 +501,26 @@ impl Into<&'static str> for Error {
             Error::CommunicationError => "Communication error",
             Error::InputBufferOverrun => "Input buffer overrun",
             Error::TimeoutError => "Timeout error",
+            Error::GetNotAllowed => "Get not allowed",
+            Error::SuffixError => "Suffix error",
+            Error::InvalidSuffix => "Invalid suffix",
+            Error::SuffixTooLong => "Suffix too long",
+            Error::SuffixNotAllowed => "Suffix not allowed",
+            Error::CharacterDataError => "Character data error",
+            Error::CharacterDataTooLong => "Character data too long",
+            Error::CharacterNotAllowed => "Character not allowed",
+            Error::StringDataError => "String data error",
+            Error::InvalidStringData => "Invalid string data",
+            Error::StringDataNotAllowed => "String data not allowed",
+            Error::BlockDataError => "Block data error",
+            Error::InvalidBlockData => "Invalid block data",
+            Error::BlockDataNotAllowed => "Block data not allowed",
+            Error::ExpressionError => "Expression error",
+            Error::InvalidExpression => "Invalid expression",
+            Error::ExpressionDataNotAllowed => "Expression data not allowed",
+            Error::OutOfMemory => "Out of memory",
+            Error::ListsNotSameLength => "Lists not same length",
+            Error::DataCorruptOrStale => "Data corrupt or stale",
         }
     }
 }
@@ -369,5 +536,14 @@ impl core::error::Error for Error {}
 impl From<core::fmt::Error> for Error {
     fn from(_value: core::fmt::Error) -> Self {
         Error::QueryError
+    }
+}
+
+impl From<ParseError> for Error {
+    fn from(value: ParseError) -> Self {
+        match value {
+            ParseError::SoftError(error) => error.unwrap_or(Error::SyntaxError),
+            ParseError::FatalError(error) => error,
+        }
     }
 }

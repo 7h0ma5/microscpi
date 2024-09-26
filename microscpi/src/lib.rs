@@ -42,7 +42,7 @@ mod error;
 mod interface;
 mod interpreter;
 mod parser;
-pub mod tokens;
+mod response;
 mod tree;
 mod value;
 

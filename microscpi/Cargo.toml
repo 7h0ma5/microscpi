@@ -17,10 +17,6 @@ name = "microscpi"
 defmt = ["dep:defmt"]
 embedded-io-async = ["dep:embedded-io-async"]
 
-[[bench]]
-name = "parser"
-harness = false
-
 [dependencies]
 microscpi-macros.workspace = true
 heapless = "0.8.0"
@@ -28,5 +24,4 @@ defmt = { version = "0.3", optional = true }
 embedded-io-async = { version = "0.6", optional = true }
 
 [dev-dependencies]
-criterion = { version = "0.5", features = ["async_tokio"] }
 tokio = { version = "1.40.0", features = ["macros", "rt", "rt-multi-thread"] }

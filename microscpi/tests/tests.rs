@@ -1,5 +1,5 @@
-use microscpi::Interpreter;
 use microscpi as scpi;
+use microscpi::Interpreter;
 
 #[derive(Debug, PartialEq)]
 pub enum TestResult {
@@ -89,7 +89,9 @@ async fn test_a_long() {
 async fn test_value_string() {
     let (mut interpreter, mut output) = setup();
 
-    interpreter.parse_and_execute(b"VAL:STR?\n", &mut output).await;
+    interpreter
+        .parse_and_execute(b"VAL:STR?\n", &mut output)
+        .await;
 
     assert_eq!(output, "\"Hello World\"\n");
 }
@@ -99,17 +101,20 @@ async fn test_terminators() {
     let (mut interpreter, mut output) = setup();
 
     assert_eq!(
-        interpreter.parse_and_execute(b"*IDN?\r\n", &mut output).await,
-        None
-    );
-    assert_eq!(interpreter.parse_and_execute(b"*IDN?\n", &mut output).await, None);
-    assert_eq!(
-        interpreter.parse_and_execute(b"*IDN?\r\n", &mut output).await,
-        None
+        interpreter.parse_and_execute(b"*IDN?\n", &mut output).await,
+        &[][..]
     );
     assert_eq!(
-        interpreter.parse_and_execute(b"*IDN?\n\r", &mut output).await,
-        Some(&[b'\r'] as &[u8])
+        interpreter
+            .parse_and_execute(b"*IDN?\r\n", &mut output)
+            .await,
+        &[][..]
+    );
+    assert_eq!(
+        interpreter
+            .parse_and_execute(b"*IDN?\n\r", &mut output)
+            .await,
+        &[b'\r'][..]
     );
 }
 
@@ -118,19 +123,35 @@ async fn test_invalid_command() {
     let (mut interpreter, mut output) = setup();
 
     interpreter.parse_and_execute(b"*IDN\n", &mut output).await;
-    assert_eq!(interpreter.context.pop_error(), Some(scpi::Error::UndefinedHeader));
+    assert_eq!(
+        interpreter.context.pop_error(),
+        Some(scpi::Error::UndefinedHeader)
+    );
     assert_eq!(interpreter.context.pop_error(), None);
 
     interpreter.parse_and_execute(b"FOO\n", &mut output).await;
-    assert_eq!(interpreter.context.pop_error(), Some(scpi::Error::UndefinedHeader));
+    assert_eq!(
+        interpreter.context.pop_error(),
+        Some(scpi::Error::UndefinedHeader)
+    );
     assert_eq!(interpreter.context.pop_error(), None);
 
-    interpreter.parse_and_execute(b"FOO:BAR\n", &mut output).await;
-    assert_eq!(interpreter.context.pop_error(), Some(scpi::Error::UndefinedHeader));
+    interpreter
+        .parse_and_execute(b"FOO:BAR\n", &mut output)
+        .await;
+    assert_eq!(
+        interpreter.context.pop_error(),
+        Some(scpi::Error::UndefinedHeader)
+    );
     assert_eq!(interpreter.context.pop_error(), None);
 
-    interpreter.parse_and_execute(b"SYST:FOO\n", &mut output).await;
-    assert_eq!(interpreter.context.pop_error(), Some(scpi::Error::UndefinedHeader));
+    interpreter
+        .parse_and_execute(b"SYST:FOO\n", &mut output)
+        .await;
+    assert_eq!(
+        interpreter.context.pop_error(),
+        Some(scpi::Error::UndefinedHeader)
+    );
     assert_eq!(interpreter.context.pop_error(), None);
 }
 
@@ -141,7 +162,10 @@ async fn test_invalid_character() {
     interpreter
         .parse_and_execute("*IDN!\n".as_bytes(), &mut output)
         .await;
-    assert_eq!(interpreter.context.pop_error(), Some(scpi::Error::InvalidCharacter));
+    assert_eq!(
+        interpreter.context.pop_error(),
+        Some(scpi::Error::InvalidCharacter)
+    );
 }
 
 #[tokio::test]
@@ -160,22 +184,34 @@ async fn test_invalid_arguments() {
     interpreter
         .parse_and_execute(b"SYSTEM:TEST:A 123 456\n", &mut output)
         .await;
-    assert_eq!(interpreter.context.pop_error(), Some(scpi::Error::InvalidSeparator));
+    assert_eq!(
+        interpreter.context.pop_error(),
+        Some(scpi::Error::InvalidCharacter)
+    );
 
     interpreter
         .parse_and_execute(b"SYSTEM:TEST:A 123,,456\n", &mut output)
         .await;
-    assert_eq!(interpreter.context.pop_error(), Some(scpi::Error::InvalidSeparator));
+    assert_eq!(
+        interpreter.context.pop_error(),
+        Some(scpi::Error::InvalidCharacter)
+    );
 
     interpreter
         .parse_and_execute(b"SYSTEM:TEST:A ,123\n", &mut output)
         .await;
-    assert_eq!(interpreter.context.pop_error(), Some(scpi::Error::InvalidSeparator));
+    assert_eq!(
+        interpreter.context.pop_error(),
+        Some(scpi::Error::InvalidCharacter)
+    );
 
     interpreter
         .parse_and_execute(b"SYSTEM:TEST:A,123\n", &mut output)
         .await;
-    assert_eq!(interpreter.context.pop_error(), Some(scpi::Error::InvalidSeparator));
+    assert_eq!(
+        interpreter.context.pop_error(),
+        Some(scpi::Error::InvalidCharacter)
+    );
 
     assert_eq!(interpreter.context.pop_error(), None);
 }

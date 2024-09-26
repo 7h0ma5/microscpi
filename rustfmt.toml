@@ -1,5 +1,4 @@
-version = "Two"
-edition = "2021"
+style_edition = "2021"
 unstable_features = true
 control_brace_style = "ClosingNextLine"
 combine_control_expr = false

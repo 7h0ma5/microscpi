@@ -109,7 +109,7 @@ impl Response for f32 {
             }
         }
         else {
-            f.write_fmt(format_args!("{}", self)) 
+            f.write_fmt(format_args!("{}", self))
         }
     }
 }
@@ -128,7 +128,7 @@ impl Response for f64 {
             }
         }
         else {
-            f.write_fmt(format_args!("{}", self)) 
+            f.write_fmt(format_args!("{}", self))
         }
     }
 }
@@ -140,7 +140,11 @@ impl Response for crate::Error {
     }
 }
 
-impl<A, B> Response for (A, B) where A: Response, B: Response {
+impl<A, B> Response for (A, B)
+where
+    A: Response,
+    B: Response,
+{
     fn scpi_fmt(&self, f: &mut impl Write) -> Result<(), Error> {
         self.0.scpi_fmt(f)?;
         f.write_char(',')?;

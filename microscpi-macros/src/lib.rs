@@ -163,32 +163,26 @@ pub fn interface(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let mut commands = extract_commands(&mut input);
 
-    commands.push(
-        Rc::new(CommandDefinition {
-            id: commands.len(),
-            args: Vec::new(),
-            command: Command::try_from("SYSTem:VERSion?").unwrap(),
-            handler: CommandHandler::ContextFunction("system_version"),
-        })
-    );
+    commands.push(Rc::new(CommandDefinition {
+        id: commands.len(),
+        args: Vec::new(),
+        command: Command::try_from("SYSTem:VERSion?").unwrap(),
+        handler: CommandHandler::ContextFunction("system_version"),
+    }));
 
-    commands.push(
-        Rc::new(CommandDefinition {
-            id: commands.len(),
-            args: Vec::new(),
-            command: Command::try_from("SYSTem:ERRor:[NEXT]?").unwrap(),
-            handler: CommandHandler::ContextFunction("system_error_next"),
-        })
-    );
+    commands.push(Rc::new(CommandDefinition {
+        id: commands.len(),
+        args: Vec::new(),
+        command: Command::try_from("SYSTem:ERRor:[NEXT]?").unwrap(),
+        handler: CommandHandler::ContextFunction("system_error_next"),
+    }));
 
-    commands.push(
-        Rc::new(CommandDefinition {
-            id: commands.len(),
-            args: Vec::new(),
-            command: Command::try_from("SYSTem:ERRor:COUNt?").unwrap(),
-            handler: CommandHandler::ContextFunction("system_error_count"),
-        })
-    );
+    commands.push(Rc::new(CommandDefinition {
+        id: commands.len(),
+        args: Vec::new(),
+        command: Command::try_from("SYSTem:ERRor:COUNt?").unwrap(),
+        handler: CommandHandler::ContextFunction("system_error_count"),
+    }));
 
     let mut tree = Tree::new();
     commands
