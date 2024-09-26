@@ -11,6 +11,8 @@ pub enum ParseError {
     SoftError(Option<Error>),
     /// Unrecoverable syntax error
     FatalError(Error),
+    /// Incomplete data
+    Incomplete,
 }
 
 impl From<()> for ParseError {
@@ -43,28 +45,35 @@ pub struct CommandCall<'a> {
     pub args: Vec<Value<'a>, MAX_ARGS>,
 }
 
+fn is_whitespace(input: u8) -> bool {
+    matches!(input, 0u8..=9u8 | 11u8..=32u8)
+}
+
 /// Reads a whitespace token (IEEE 488.2 7.4.1.2)
 fn whitespace(input: &[u8]) -> ParseResult<&[u8]> {
     let pos = input
         .iter()
-        .position(|&c| !(matches!(c, 0u8..=9u8 | 11u8..=32u8)));
+        .position(|&c| !is_whitespace(c));
 
     match pos {
         Some(pos) if pos > 0 => Ok((&input[pos..], &input[..pos])),
-        None if !input.is_empty() => Ok((&[], input)),
+        None if input.is_empty() => Err(ParseError::Incomplete),
         _ => Err(Error::InvalidCharacter)?,
     }
 }
 
-fn tag(tag: u8) -> impl Fn(&[u8]) -> ParseResult<u8> {
+fn satisfy<F>(pred: F) -> impl Fn(&[u8]) -> ParseResult<u8> where F: Fn(u8) -> bool {
     move |i: &[u8]| {
-        if i.first() == Some(&tag) {
-            Ok((&i[1..], tag))
-        }
-        else {
-            Err(Error::InvalidCharacter)?
+        match i.first() {
+            Some(&byte) if pred(byte) => Ok((&i[1..], byte)),
+            Some(_) => Err(Error::InvalidCharacter)?,
+            None => Err(ParseError::Incomplete),
         }
     }
+}
+
+fn tag(tag: u8) -> impl Fn(&[u8]) -> ParseResult<u8> {
+    satisfy(move |byte| byte == tag)
 }
 
 fn terminator(input: &[u8]) -> ParseResult<u8> {
@@ -73,10 +82,7 @@ fn terminator(input: &[u8]) -> ParseResult<u8> {
 
 /// Parses a program mnemonic
 fn program_mnemonic(input: &[u8]) -> ParseResult<&[u8]> {
-    let first = input.first().ok_or(Error::InvalidCharacter)?;
-    if !(*first).is_ascii_alphabetic() {
-        Err(Error::InvalidCharacter)?;
-    }
+    let (_, _) = satisfy(|c| c.is_ascii_alphabetic())(input)?;
 
     let pos = input
         .iter()
@@ -224,12 +230,19 @@ pub fn parse<'a>(root: &'static Node, input: &'a [u8]) -> ParseResult<'a, Comman
     let (input, query) = tag(b'?')(input)
         .map(|(i, _)| (i, true))
         .unwrap_or_else(|_| (input, false));
-
-    // Skip optional whitespace
-    let (input, _) = whitespace(input).unwrap_or((input, &[]));
+    
+    let (input, has_args) = match whitespace(input) {
+        Ok((input, _)) => (input, true),
+        Err(ParseError::SoftError(_)) => (input, false),
+        Err(e) => return Err(e),
+    };
 
     let mut args = Vec::new();
-    let (input, _) = arguments(&mut args)(input).unwrap_or((input, ()));
+    let (input, _) = if has_args {
+        arguments(&mut args)(input).unwrap_or((input, ()))
+    } else {
+        (input, ())
+    };
 
     // Skip optional whitespace
     let (input, _) = whitespace(input).unwrap_or((input, &[]));

@@ -82,7 +82,7 @@ impl<I: Interface> Interpreter<I> {
         W: Write,
     {
         let mut next_index: usize = 0;
-        let mut output_buffer: heapless::Vec<u8, OUTPUT_BUFFER_SIZE> = Vec::new();
+        let mut output_buffer: heapless::Vec<u8, OUTPUT_BUFFER_SIZE> = heapless::Vec::new();
 
         loop {
             let buf = input.fill_buf().await?;

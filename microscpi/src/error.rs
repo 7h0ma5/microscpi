@@ -544,6 +544,7 @@ impl From<ParseError> for Error {
         match value {
             ParseError::SoftError(error) => error.unwrap_or(Error::SyntaxError),
             ParseError::FatalError(error) => error,
+            ParseError::Incomplete => Error::SyntaxError
         }
     }
 }
