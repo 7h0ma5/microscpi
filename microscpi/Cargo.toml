@@ -14,6 +14,7 @@ repository.workspace = true
 name = "microscpi"
 
 [features]
+std = []
 defmt = ["dep:defmt"]
 embedded-io-async = ["dep:embedded-io-async"]
 

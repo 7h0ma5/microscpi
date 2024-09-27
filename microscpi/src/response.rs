@@ -133,6 +133,13 @@ impl Response for f64 {
     }
 }
 
+#[cfg(feature = "std")]
+impl Response for std::string::String {
+    fn scpi_fmt(&self, f: &mut impl Write) -> Result<(), Error> {
+        write!(f, "{self}")
+    }
+}
+
 impl Response for crate::Error {
     fn scpi_fmt(&self, f: &mut impl Write) -> Result<(), Error> {
         let result: (i16, &str) = (self.number(), (*self).into());

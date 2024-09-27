@@ -33,9 +33,12 @@
 //!     assert_eq!(output, "42\n");
 //! }
 //! ```
-#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(any(test, feature = "std")), no_std)]
 #![allow(async_fn_in_trait)]
 #![allow(clippy::from_str_radix_10)]
+
+#[cfg(feature = "std")]
+extern crate std as core;
 
 mod context;
 mod error;
