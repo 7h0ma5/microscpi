@@ -45,30 +45,54 @@ pub struct CommandCall<'a> {
     pub args: Vec<Value<'a>, MAX_ARGS>,
 }
 
+fn take_while<F>(pred: F) -> impl Fn(&[u8]) -> ParseResult<&[u8]>
+where
+    F: Fn(u8) -> bool,
+{
+    move |input: &[u8]| match input.iter().position(|&byte| !pred(byte)) {
+        Some(pos) => Ok((&input[pos..], &input[..pos])),
+        None => Ok((&[], input)),
+    }
+}
+
+fn satisfy<F>(pred: F) -> impl Fn(&[u8]) -> ParseResult<u8>
+where
+    F: Fn(u8) -> bool,
+{
+    move |i: &[u8]| match i.first() {
+        Some(&byte) if pred(byte) => Ok((&i[1..], byte)),
+        Some(_) => Err(Error::InvalidCharacter)?,
+        None => Err(ParseError::Incomplete),
+    }
+}
+
+fn optional<'a, F, G>(parser: F) -> impl Fn(&'a [u8]) -> ParseResult<'a, Option<G>>
+where
+    F: Fn(&'a [u8]) -> ParseResult<'a, G>,
+    G: 'a,
+{
+    move |input: &[u8]| {
+        Ok(parser(input)
+            .map(|(i, o)| (i, Some(o)))
+            .unwrap_or((input, None)))
+    }
+}
+
 fn is_whitespace(input: u8) -> bool {
     matches!(input, 0u8..=9u8 | 11u8..=32u8)
 }
 
 /// Reads a whitespace token (IEEE 488.2 7.4.1.2)
 fn whitespace(input: &[u8]) -> ParseResult<&[u8]> {
-    let pos = input
-        .iter()
-        .position(|&c| !is_whitespace(c));
-
-    match pos {
-        Some(pos) if pos > 0 => Ok((&input[pos..], &input[..pos])),
-        None if input.is_empty() => Err(ParseError::Incomplete),
-        _ => Err(Error::InvalidCharacter)?,
-    }
-}
-
-fn satisfy<F>(pred: F) -> impl Fn(&[u8]) -> ParseResult<u8> where F: Fn(u8) -> bool {
-    move |i: &[u8]| {
-        match i.first() {
-            Some(&byte) if pred(byte) => Ok((&i[1..], byte)),
-            Some(_) => Err(Error::InvalidCharacter)?,
-            None => Err(ParseError::Incomplete),
-        }
+    match take_while(is_whitespace)(input) {
+        // If no input is remaning, the input is incomplete.
+        Ok((&[], &[])) => Err(ParseError::Incomplete),
+        // There is only something other than whitespace.
+        Ok((_, &[])) => Err(Error::InvalidCharacter)?,
+        // There is at least some whitespace.
+        Ok(res) => Ok(res),
+        // There was another error.
+        Err(error) => Err(error),
     }
 }
 
@@ -80,20 +104,21 @@ fn terminator(input: &[u8]) -> ParseResult<u8> {
     tag(b'\n')(input)
 }
 
+fn digits(input: &[u8]) -> ParseResult<&[u8]> {
+    let (i1, _) = satisfy(|c| c.is_ascii_digit())(input)?;
+    let (i2, res) = take_while(|c| c.is_ascii_digit())(i1)?;
+    Ok((i2, &input[..res.len() + 1]))
+}
+
 /// Parses a program mnemonic
 fn program_mnemonic(input: &[u8]) -> ParseResult<&[u8]> {
-    let (_, _) = satisfy(|c| c.is_ascii_alphabetic())(input)?;
+    let (i1, _) = satisfy(|c| c.is_ascii_alphabetic())(input)?;
+    let (i2, res) = take_while(|c| c.is_ascii_alphanumeric() || c == b'_')(i1)?;
+    Ok((i2, &input[..res.len() + 1]))
+}
 
-    let pos = input
-        .iter()
-        .enumerate()
-        .skip(1)
-        .take_while(|(_, &c)| c.is_ascii_alphanumeric() || c == b'_')
-        .map(|(i, _)| i)
-        .last()
-        .map_or(1, |i| i + 1);
-
-    Ok((&input[pos..], &input[..pos]))
+fn sign(input: &[u8]) -> ParseResult<u8> {
+    tag(b'+')(input).or_else(|_| tag(b'-')(input))
 }
 
 /// Parses a mnemonic value
@@ -103,30 +128,37 @@ fn mnemonic(input: &[u8]) -> ParseResult<Value<'_>> {
     Ok((input, Value::Mnemonic(mnemonic_str)))
 }
 
-/// Parses a number value (digits and possibly a decimal point)
-fn number(input: &[u8]) -> ParseResult<Value<'_>> {
-    let pos = input
-        .iter()
-        .enumerate()
-        .take_while(|(_, &c)| c.is_ascii_digit() || c == b'.')
-        .map(|(i, _)| i)
-        .last()
-        .map_or(0, |i| i + 1);
-
-    if pos > 0 {
-        let num_str = str::from_utf8(&input[..pos])?;
-        Ok((&input[pos..], Value::Number(num_str)))
+fn mantissa(input: &[u8]) -> ParseResult<&[u8]> {
+    let (i1, _sign) = optional(sign)(input)?;
+    let (i2, d1) = optional(digits)(i1)?;
+    let (i3, _decimal) = optional(tag(b'.'))(i2)?;
+    let (i4, _d2) = if d1.is_some() {
+        optional(digits)(i3)?
     }
     else {
-        Err(().into())
-    }
+        digits(i3).map(|(i, o)| (i, Some(o)))?
+    };
+    Ok((i4, &input[..input.len() - i4.len()]))
 }
 
-/// Parses a header separator
+fn exponent(input: &[u8]) -> ParseResult<&[u8]> {
+    let (i1, _) = satisfy(|c| c == b'E' || c == b'e')(input)?;
+    let (i2, _) = optional(sign)(i1)?;
+    let (i3, _) = digits(i2)?;
+    Ok((i3, &input[..input.len() - i3.len()]))
+}
+
+fn decimal_numeric_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
+    let (i1, _) = mantissa(input)?;
+    let (i2, _) = optional(exponent)(i1)?;
+    let res = str::from_utf8(&input[..input.len() - i2.len()])?;
+    Ok((i2, Value::Decimal(res)))
+}
+
 fn header_separator(input: &[u8]) -> ParseResult<()> {
-    let (input, _) = whitespace(input).unwrap_or((input, &[]));
+    let (input, _) = optional(whitespace)(input)?;
     let (input, _) = tag(b':')(input).map_err(|_| Error::HeaderSeparatorError)?;
-    let (input, _) = whitespace(input).unwrap_or((input, &[]));
+    let (input, _) = optional(whitespace)(input)?;
     Ok((input, ()))
 }
 
@@ -184,15 +216,15 @@ fn command_program_header(root: &'static Node) -> impl Fn(&[u8]) -> ParseResult<
 
 /// Parses an argument separator (comma with optional whitespace)
 fn argument_separator(input: &[u8]) -> ParseResult<()> {
-    let (input, _) = whitespace(input).unwrap_or((input, &[]));
+    let (input, _) = optional(whitespace)(input)?;
     let (input, _) = tag(b',')(input).map_err(|_| Error::InvalidSeparator)?;
-    let (input, _) = whitespace(input).unwrap_or((input, &[]));
+    let (input, _) = optional(whitespace)(input)?;
     Ok((input, ()))
 }
 
 /// Parses an argument (mnemonic or number)
 fn argument(input: &[u8]) -> ParseResult<Value<'_>> {
-    mnemonic(input).or_else(|_| number(input))
+    mnemonic(input).or_else(|_| decimal_numeric_program_data(input))
 }
 
 /// Parses multiple arguments separated by commas
@@ -223,14 +255,14 @@ fn arguments<'a, 'b>(
 /// The main parsing function
 pub fn parse<'a>(root: &'static Node, input: &'a [u8]) -> ParseResult<'a, CommandCall<'a>> {
     // Skip optional whitespace
-    let (input, _) = whitespace(input).unwrap_or((input, &[]));
+    let (input, _) = optional(whitespace)(input)?;
 
     let (input, node) = command_program_header(root)(input)?;
 
     let (input, query) = tag(b'?')(input)
         .map(|(i, _)| (i, true))
         .unwrap_or_else(|_| (input, false));
-    
+
     let (input, has_args) = match whitespace(input) {
         Ok((input, _)) => (input, true),
         Err(ParseError::SoftError(_)) => (input, false),
@@ -240,12 +272,13 @@ pub fn parse<'a>(root: &'static Node, input: &'a [u8]) -> ParseResult<'a, Comman
     let mut args = Vec::new();
     let (input, _) = if has_args {
         arguments(&mut args)(input).unwrap_or((input, ()))
-    } else {
+    }
+    else {
         (input, ())
     };
 
     // Skip optional whitespace
-    let (input, _) = whitespace(input).unwrap_or((input, &[]));
+    let (input, _) = optional(whitespace)(input)?;
 
     let (input, _) = terminator(input)?;
 
@@ -253,7 +286,20 @@ pub fn parse<'a>(root: &'static Node, input: &'a [u8]) -> ParseResult<'a, Comman
 }
 
 #[test]
-pub fn parse_whitespace() {
+pub fn test_take_while() {
+    assert_eq!(
+        take_while(|c| c == b'z')(b"zzzzx"),
+        Ok((&b"x"[..], &b"zzzz"[..]))
+    );
+
+    assert_eq!(
+        take_while(|c| c == b'x')(b"zzzzx"),
+        Ok((&b"zzzzx"[..], &b""[..]))
+    );
+}
+
+#[test]
+pub fn test_whitespace() {
     assert_eq!(
         whitespace(b" \t \r xyz"),
         Ok((&b"xyz"[..], &b" \t \r "[..]))
@@ -262,16 +308,54 @@ pub fn parse_whitespace() {
 }
 
 #[test]
-pub fn parse_mnemonic() {
+pub fn test_digits() {
+    assert_eq!(digits(b""), Err(ParseError::Incomplete));
+    assert_eq!(digits(b"abc"), Err(Error::InvalidCharacter.into()));
+    assert_eq!(digits(b"1"), Ok((&b""[..], &b"1"[..])));
+    assert_eq!(digits(b"1a"), Ok((&b"a"[..], &b"1"[..])));
+    assert_eq!(digits(b"12"), Ok((&b""[..], &b"12"[..])));
+    assert_eq!(digits(b"12a"), Ok((&b"a"[..], &b"12"[..])));
+    assert_eq!(digits(b"01234567890"), Ok((&b""[..], &b"01234567890"[..])));
+    assert_eq!(digits(b"01234567890abc"), Ok((&b"abc"[..], &b"01234567890"[..])));
+}
+
+#[test]
+pub fn test_mnemonic() {
     assert_eq!(
         mnemonic(b"a1b2_c3 uvw"),
         Ok((&b" uvw"[..], Value::Mnemonic("a1b2_c3")))
     );
+
+    assert_eq!(
+        mnemonic(b"142b"),
+        Err(ParseError::SoftError(Some(Error::InvalidCharacter)))
+    );
 }
 
 #[test]
-pub fn parse_arguments() {
+pub fn test_decimal() {
+    assert_eq!(
+        decimal_numeric_program_data(b"089582"),
+        Ok((&b""[..], Value::Decimal("089582")))
+    );
+
+    assert_eq!(
+        decimal_numeric_program_data(b"23.439"),
+        Ok((&b""[..], Value::Decimal("23.439")))
+    );
+
+    assert_eq!(
+        decimal_numeric_program_data(b"42.439E-29"),
+        Ok((&b""[..], Value::Decimal("42.439E-29")))
+    );
+}
+
+#[test]
+pub fn test_arguments() {
     let mut args: Vec<Value<'_>, MAX_ARGS> = Vec::new();
     assert_eq!(arguments(&mut args)(b"123, 456\n"), Ok((&b"\n"[..], ())));
-    assert_eq!(&args[..], &[Value::Number("123"), Value::Number("456")]);
+    assert_eq!(&args[..], &[
+        Value::Decimal("123"),
+        Value::Decimal("456")
+    ]);
 }
