@@ -51,9 +51,7 @@ fn is_whitespace(input: u8) -> bool {
 
 /// Reads a whitespace token (IEEE 488.2 7.4.1.2)
 fn whitespace(input: &[u8]) -> ParseResult<&[u8]> {
-    let pos = input
-        .iter()
-        .position(|&c| !is_whitespace(c));
+    let pos = input.iter().position(|&c| !is_whitespace(c));
 
     match pos {
         Some(pos) if pos > 0 => Ok((&input[pos..], &input[..pos])),
@@ -62,13 +60,24 @@ fn whitespace(input: &[u8]) -> ParseResult<&[u8]> {
     }
 }
 
-fn satisfy<F>(pred: F) -> impl Fn(&[u8]) -> ParseResult<u8> where F: Fn(u8) -> bool {
-    move |i: &[u8]| {
-        match i.first() {
-            Some(&byte) if pred(byte) => Ok((&i[1..], byte)),
-            Some(_) => Err(Error::InvalidCharacter)?,
-            None => Err(ParseError::Incomplete),
-        }
+fn satisfy<F>(pred: F) -> impl Fn(&[u8]) -> ParseResult<u8>
+where
+    F: Fn(u8) -> bool,
+{
+    move |i: &[u8]| match i.first() {
+        Some(&byte) if pred(byte) => Ok((&i[1..], byte)),
+        Some(_) => Err(Error::InvalidCharacter)?,
+        None => Err(ParseError::Incomplete),
+    }
+}
+
+fn optional<F, G>(parser: F) -> impl Fn(&[u8]) -> ParseResult<Option<G>>
+where
+    F: Fn(&[u8]) -> ParseResult<G>,
+    G: Default,
+{
+    move |input: &[u8]| {
+        Ok(parser(input).map(|(i, o)| (i, Some(o))).unwrap_or((input, None)))
     }
 }
 
@@ -96,6 +105,10 @@ fn program_mnemonic(input: &[u8]) -> ParseResult<&[u8]> {
     Ok((&input[pos..], &input[..pos]))
 }
 
+fn sign(input: &[u8]) -> ParseResult<u8> {
+    tag(b'+')(input).or_else(|_| tag(b'-')(input))
+}
+
 /// Parses a mnemonic value
 fn mnemonic(input: &[u8]) -> ParseResult<Value<'_>> {
     let (input, res) = program_mnemonic(input)?;
@@ -103,7 +116,20 @@ fn mnemonic(input: &[u8]) -> ParseResult<Value<'_>> {
     Ok((input, Value::Mnemonic(mnemonic_str)))
 }
 
-/// Parses a number value (digits and possibly a decimal point)
+fn mantissa(input: &[u8]) -> ParseResult<&str> {
+    let (input, sign) = optional(sign)(input)?;
+    let (input, decimal) = optional(tag(b'.'))(input)?;
+}
+
+fn exponent(input: &[u8]) -> ParseResult<&str> {}
+
+fn decimal_numeric_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
+    let (input, m) = mantissa(input)?;
+    let (input, _) = optional(whitespace)(input)?;
+    let (input, exp) = optional(exponent)(input)?;
+    Ok((Value::Number(mantissa)))
+}
+
 fn number(input: &[u8]) -> ParseResult<Value<'_>> {
     let pos = input
         .iter()
@@ -230,7 +256,7 @@ pub fn parse<'a>(root: &'static Node, input: &'a [u8]) -> ParseResult<'a, Comman
     let (input, query) = tag(b'?')(input)
         .map(|(i, _)| (i, true))
         .unwrap_or_else(|_| (input, false));
-    
+
     let (input, has_args) = match whitespace(input) {
         Ok((input, _)) => (input, true),
         Err(ParseError::SoftError(_)) => (input, false),
@@ -240,7 +266,8 @@ pub fn parse<'a>(root: &'static Node, input: &'a [u8]) -> ParseResult<'a, Comman
     let mut args = Vec::new();
     let (input, _) = if has_args {
         arguments(&mut args)(input).unwrap_or((input, ()))
-    } else {
+    }
+    else {
         (input, ())
     };
 
