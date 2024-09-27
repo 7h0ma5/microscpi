@@ -48,6 +48,11 @@ impl TestInterface {
     pub async fn math_multiply(&mut self, a: u64, b: u64) -> Result<u64, scpi::Error> {
         Ok(a * b)
     }
+
+    #[scpi(cmd = "MATH:OPeration:MULTiplyFloat?")]
+    pub async fn math_multiply_float(&mut self, a: f64, b: f64) -> Result<f64, scpi::Error> {
+        Ok(a * b)
+    }
 }
 
 fn setup() -> (Interpreter<TestInterface>, String) {
@@ -175,6 +180,15 @@ async fn test_arguments() {
         .parse_and_execute(b"MATH:OP:MULT? 123,456\n", &mut output)
         .await;
     assert_eq!(output, "56088\n");
+}
+
+#[tokio::test]
+async fn test_float() {
+    let (mut interpreter, mut output) = setup();
+    interpreter
+        .parse_and_execute(b"MATH:OP:MULTF? 23.42,42.23\n", &mut output)
+        .await;
+    assert_eq!(output, "989.0266\n");
 }
 
 #[tokio::test]
