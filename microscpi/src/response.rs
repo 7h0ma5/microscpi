@@ -161,3 +161,147 @@ where
         self.1.scpi_fmt(f)
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bool_response() {
+        let mut buffer = String::new();
+        true.scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "1");
+
+        let mut buffer = String::new();
+        false.scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "0");
+    }
+
+    #[test]
+    fn test_mnemonic_response() {
+        let mut buffer = String::new();
+        Mnemonic("TEST").scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "TEST");
+    }
+
+    #[test]
+    fn test_str_response() {
+        let mut buffer = String::new();
+        "hello".scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "\"hello\"");
+    }
+
+    #[test]
+    fn test_i8_response() {
+        let mut buffer = String::new();
+        (-121 as i8).scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "-121");
+    }
+
+    #[test]
+    fn test_u8_response() {
+        let mut buffer = String::new();
+        (83 as u8).scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "83");
+    }
+
+    #[test]
+    fn test_i16_response() {
+        let mut buffer = String::new();
+        (-23502 as i16).scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "-23502");
+    }
+
+    #[test]
+    fn test_u16_response() {
+        let mut buffer = String::new();
+        (54968 as u16).scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "54968");
+    }
+
+    #[test]
+    fn test_i32_response() {
+        let mut buffer = String::new();
+        (-3895783 as i32).scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "-3895783");
+    }
+
+    #[test]
+    fn test_u32_response() {
+        let mut buffer = String::new();
+        (9437838 as u32).scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "9437838");
+    }
+
+    #[test]
+    fn test_i64_response() {
+        let mut buffer = String::new();
+        (-128945978592 as i64).scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "-128945978592");
+    }
+
+    #[test]
+    fn test_u64_response() {
+        let mut buffer = String::new();
+        (39048530499456 as u64).scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "39048530499456");
+    }
+
+    #[test]
+    fn test_isize_response() {
+        let mut buffer = String::new();
+        (-3451512 as isize).scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "-3451512");
+    }
+
+    #[test]
+    fn test_usize_response() {
+        let mut buffer = String::new();
+        (49684793 as usize).scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "49684793");
+    }
+
+    #[test]
+    fn test_f32_response() {
+        let mut buffer = String::new();
+        (1.23 as f32).scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "1.23");
+
+        let mut buffer = String::new();
+        (f32::NAN).scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "9.91E+37");
+
+        let mut buffer = String::new();
+        (f32::INFINITY).scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "9.9E+37");
+
+        let mut buffer = String::new();
+        (f32::NEG_INFINITY).scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "-9.9E+37");
+    }
+
+    #[test]
+    fn test_f64_response() {
+        let mut buffer = String::new();
+        (4.56 as f64).scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "4.56");
+
+        let mut buffer = String::new();
+        (f64::NAN).scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "9.91E+37");
+
+        let mut buffer = String::new();
+        (f64::INFINITY).scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "9.9E+37");
+
+        let mut buffer = String::new();
+        (f64::NEG_INFINITY).scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "-9.9E+37");
+    }
+
+    #[test]
+    fn test_tuple_response() {
+        let mut buffer = String::new();
+        (123, "world").scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "123,\"world\"");
+    }
+}

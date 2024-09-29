@@ -49,3 +49,63 @@ impl<const N: usize> ErrorQueue for StaticErrorQueue<N> {
         self.0.len()
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_push_and_pop_error() {
+        let mut queue: StaticErrorQueue<3> = StaticErrorQueue::new();
+        assert_eq!(queue.error_count(), 0);
+
+        queue.push_error(Error::ExpressionError);
+        assert_eq!(queue.error_count(), 1);
+
+        let error = queue.pop_error();
+        assert_eq!(error, Some(Error::ExpressionError));
+        assert_eq!(queue.error_count(), 0);
+    }
+
+    #[test]
+    fn test_queue_overflow() {
+        let mut queue: StaticErrorQueue<2> = StaticErrorQueue::new();
+        queue.push_error(Error::CalibrationFailed);
+        queue.push_error(Error::HardwareError);
+        assert_eq!(queue.error_count(), 2);
+
+        // This push should cause an overflow
+        queue.push_error(Error::DataTypeError);
+        assert_eq!(queue.error_count(), 2);
+
+        // The last error should be QueueOverflow
+        let error = queue.pop_error();
+        assert_eq!(error, Some(Error::CalibrationFailed));
+        let error = queue.pop_error();
+        assert_eq!(error, Some(Error::QueueOverflow));
+    }
+
+    #[test]
+    fn test_pop_empty_queue() {
+        let mut queue: StaticErrorQueue<2> = StaticErrorQueue::new();
+        let error = queue.pop_error();
+        assert_eq!(error, None);
+    }
+
+    #[test]
+    fn test_error_count() {
+        let mut queue: StaticErrorQueue<3> = StaticErrorQueue::new();
+        assert_eq!(queue.error_count(), 0);
+
+        queue.push_error(Error::BlockDataNotAllowed);
+        assert_eq!(queue.error_count(), 1);
+
+        queue.push_error(Error::OutOfMemory);
+        assert_eq!(queue.error_count(), 2);
+
+        queue.pop_error();
+        assert_eq!(queue.error_count(), 1);
+
+        queue.pop_error();
+        assert_eq!(queue.error_count(), 0);
+    }
+}

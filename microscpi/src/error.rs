@@ -548,3 +548,114 @@ impl From<ParseError> for Error {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_error_number() {
+        assert_eq!(Error::CommandError.number(), -100);
+        assert_eq!(Error::InvalidCharacter.number(), -101);
+        assert_eq!(Error::SyntaxError.number(), -102);
+        assert_eq!(Error::Custom(999, "Custom Error").number(), 999);
+    }
+
+    #[test]
+    fn test_error_display() {
+        assert_eq!(format!("{}", Error::CommandError), "Command error");
+        assert_eq!(format!("{}", Error::InvalidCharacter), "Invalid character");
+        assert_eq!(format!("{}", Error::SyntaxError), "Syntax Error");
+        assert_eq!(format!("{}", Error::Custom(999, "Custom Error")), "Custom Error");
+    }
+
+    #[test]
+    fn test_error_from_fmt_error() {
+        let fmt_error: core::fmt::Error = core::fmt::Error;
+        let error: Error = fmt_error.into();
+        assert_eq!(error, Error::QueryError);
+    }
+
+    #[test]
+    fn test_error_from_parse_error() {
+        let parse_error = ParseError::SoftError(Some(Error::SyntaxError));
+        let error: Error = parse_error.into();
+        assert_eq!(error, Error::SyntaxError);
+
+        let parse_error = ParseError::FatalError(Error::CommandError);
+        let error: Error = parse_error.into();
+        assert_eq!(error, Error::CommandError);
+
+        let parse_error = ParseError::Incomplete;
+        let error: Error = parse_error.into();
+        assert_eq!(error, Error::SyntaxError);
+    }
+
+    #[test]
+    fn test_error_to_str() {
+        assert_eq!(Into::<&str>::into(Error::CommandError), "Command error");
+        assert_eq!(Into::<&str>::into(Error::InvalidCharacter), "Invalid character");
+        assert_eq!(Into::<&str>::into(Error::SyntaxError), "Syntax Error");
+        assert_eq!(Into::<&str>::into(Error::Custom(999, "Custom Error")), "Custom Error");
+    }
+
+    #[test]
+    fn test_all_error_numbers() {
+        assert_eq!(Error::InvalidSeparator.number(), -103);
+        assert_eq!(Error::DataTypeError.number(), -104);
+        assert_eq!(Error::GetNotAllowed.number(), -105);
+        assert_eq!(Error::ParameterNotAllowed.number(), -108);
+        assert_eq!(Error::MissingParameter.number(), -109);
+        assert_eq!(Error::CommandHeaderError.number(), -110);
+        assert_eq!(Error::HeaderSeparatorError.number(), -111);
+        assert_eq!(Error::ProgramMnemonicTooLong.number(), -112);
+        assert_eq!(Error::UndefinedHeader.number(), -113);
+        assert_eq!(Error::HeaderSuffixOutOfRange.number(), -114);
+        assert_eq!(Error::UnexpectedNumberOfParameters.number(), -115);
+        assert_eq!(Error::NumericDataError.number(), -120);
+        assert_eq!(Error::InvalidCharacterInNumber.number(), -121);
+        assert_eq!(Error::ExponentTooLarge.number(), -123);
+        assert_eq!(Error::TooManyDigits.number(), -124);
+        assert_eq!(Error::NumericDataNotAllowed.number(), -128);
+        assert_eq!(Error::SuffixError.number(), -130);
+        assert_eq!(Error::InvalidSuffix.number(), -131);
+        assert_eq!(Error::SuffixTooLong.number(), -134);
+        assert_eq!(Error::SuffixNotAllowed.number(), -138);
+        assert_eq!(Error::CharacterDataError.number(), -140);
+        assert_eq!(Error::InvalidCharacterData.number(), -141);
+        assert_eq!(Error::CharacterDataTooLong.number(), -144);
+        assert_eq!(Error::CharacterNotAllowed.number(), -148);
+        assert_eq!(Error::StringDataError.number(), -150);
+        assert_eq!(Error::InvalidStringData.number(), -151);
+        assert_eq!(Error::StringDataNotAllowed.number(), -158);
+        assert_eq!(Error::BlockDataError.number(), -160);
+        assert_eq!(Error::InvalidBlockData.number(), -161);
+        assert_eq!(Error::BlockDataNotAllowed.number(), -168);
+        assert_eq!(Error::ExpressionError.number(), -170);
+        assert_eq!(Error::InvalidExpression.number(), -171);
+        assert_eq!(Error::ExpressionDataNotAllowed.number(), -178);
+        assert_eq!(Error::ExecutionError.number(), -200);
+        assert_eq!(Error::InvalidWhileInLocal.number(), -201);
+        assert_eq!(Error::CommandProtected.number(), -203);
+        assert_eq!(Error::TriggerError.number(), -210);
+        assert_eq!(Error::ParameterError.number(), -220);
+        assert_eq!(Error::SettingsConflict.number(), -221);
+        assert_eq!(Error::DataOutOfRange.number(), -222);
+        assert_eq!(Error::TooMuchData.number(), -223);
+        assert_eq!(Error::IllegalParameterValue.number(), -224);
+        assert_eq!(Error::OutOfMemory.number(), -225);
+        assert_eq!(Error::ListsNotSameLength.number(), -226);
+        assert_eq!(Error::DataCorruptOrStale.number(), -230);
+        assert_eq!(Error::HardwareError.number(), -240);
+        assert_eq!(Error::DeviceSpecificError.number(), -300);
+        assert_eq!(Error::SystemError.number(), -310);
+        assert_eq!(Error::StorageFault.number(), -320);
+        assert_eq!(Error::SelfTestFailed.number(), -330);
+        assert_eq!(Error::CalibrationFailed.number(), -340);
+        assert_eq!(Error::QueueOverflow.number(), -350);
+        assert_eq!(Error::CommunicationError.number(), -360);
+        assert_eq!(Error::InputBufferOverrun.number(), -363);
+        assert_eq!(Error::TimeoutError.number(), -365);
+        assert_eq!(Error::QueryError.number(), -400);
+    }
+}

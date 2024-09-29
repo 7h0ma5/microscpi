@@ -172,23 +172,117 @@ impl TryInto<f64> for Value<'_> {
     }
 }
 
-#[test]
-pub fn test_bool() {
-    assert_eq!(Value::Mnemonic("ON").try_into(), Ok(true));
-    assert_eq!(Value::Mnemonic("on").try_into(), Ok(true));
-    assert_eq!(Value::Decimal("1").try_into(), Ok(true));
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    assert_eq!(Value::Mnemonic("OFF").try_into(), Ok(false));
-    assert_eq!(Value::Mnemonic("off").try_into(), Ok(false));
-    assert_eq!(Value::Decimal("0").try_into(), Ok(false));
+    #[test]
+    pub fn test_bool() {
+        assert_eq!(Value::Mnemonic("ON").try_into(), Ok(true));
+        assert_eq!(Value::Mnemonic("on").try_into(), Ok(true));
+        assert_eq!(Value::Decimal("1").try_into(), Ok(true));
 
-    assert_eq!(
-        Value::Mnemonic("10").try_into(),
-        Err::<bool, Error>(Error::IllegalParameterValue)
-    );
+        assert_eq!(Value::Mnemonic("OFF").try_into(), Ok(false));
+        assert_eq!(Value::Mnemonic("off").try_into(), Ok(false));
+        assert_eq!(Value::Decimal("0").try_into(), Ok(false));
 
-    assert_eq!(
-        Value::Mnemonic("NO").try_into(),
-        Err::<bool, Error>(Error::IllegalParameterValue)
-    );
+        assert_eq!(
+            Value::Mnemonic("10").try_into(),
+            Err::<bool, Error>(Error::IllegalParameterValue)
+        );
+
+        assert_eq!(
+            Value::Mnemonic("NO").try_into(),
+            Err::<bool, Error>(Error::IllegalParameterValue)
+        );
+    }
+
+    #[test]
+    pub fn test_string() {
+        assert_eq!(Value::String("test").try_into(), Ok("test"));
+        assert_eq!(
+            Value::Decimal("123").try_into(),
+            Err::<&str, Error>(Error::DataTypeError)
+        );
+    }
+
+    #[test]
+    pub fn test_u32() {
+        assert_eq!(Value::Decimal("123").try_into(), Ok(123u32));
+        assert_eq!(
+            Value::Decimal("abc").try_into(),
+            Err::<u32, Error>(Error::NumericDataError)
+        );
+        assert_eq!(
+            Value::String("123").try_into(),
+            Err::<u32, Error>(Error::DataTypeError)
+        );
+    }
+
+    #[test]
+    pub fn test_i32() {
+        assert_eq!(Value::Decimal("123").try_into(), Ok(123i32));
+        assert_eq!(Value::Decimal("-123").try_into(), Ok(-123i32));
+        assert_eq!(
+            Value::Decimal("abc").try_into(),
+            Err::<i32, Error>(Error::NumericDataError)
+        );
+        assert_eq!(
+            Value::String("123").try_into(),
+            Err::<i32, Error>(Error::DataTypeError)
+        );
+    }
+
+    #[test]
+    pub fn test_u64() {
+        assert_eq!(Value::Decimal("123").try_into(), Ok(123u64));
+        assert_eq!(
+            Value::Decimal("abc").try_into(),
+            Err::<u64, Error>(Error::NumericDataError)
+        );
+        assert_eq!(
+            Value::String("123").try_into(),
+            Err::<u64, Error>(Error::DataTypeError)
+        );
+    }
+
+    #[test]
+    pub fn test_i64() {
+        assert_eq!(Value::Decimal("123").try_into(), Ok(123i64));
+        assert_eq!(Value::Decimal("-123").try_into(), Ok(-123i64));
+        assert_eq!(
+            Value::Decimal("abc").try_into(),
+            Err::<i64, Error>(Error::NumericDataError)
+        );
+        assert_eq!(
+            Value::String("123").try_into(),
+            Err::<i64, Error>(Error::DataTypeError)
+        );
+    }
+
+    #[test]
+    pub fn test_f32() {
+        assert_eq!(Value::Decimal("123.45").try_into(), Ok(123.45f32));
+        assert_eq!(
+            Value::Decimal("abc").try_into(),
+            Err::<f32, Error>(Error::NumericDataError)
+        );
+        assert_eq!(
+            Value::String("123.45").try_into(),
+            Err::<f32, Error>(Error::DataTypeError)
+        );
+    }
+
+    #[test]
+    pub fn test_f64() {
+        assert_eq!(Value::Decimal("123.45").try_into(), Ok(123.45f64));
+        assert_eq!(
+            Value::Decimal("abc").try_into(),
+            Err::<f64, Error>(Error::NumericDataError)
+        );
+        assert_eq!(
+            Value::String("123.45").try_into(),
+            Err::<f64, Error>(Error::DataTypeError)
+        );
+    }
 }
