@@ -18,16 +18,22 @@ This crate provides a simple interface to create an async SCPI (Standard Command
 The following is a minimal example demonstrating how to use the `microscpi` crate to create an SCPI command interface that handles the `SYSTem:VALue?` command asynchronously.
 
 ```rust
-use microscpi as scpi;
+use microscpi::{self as scpi, Interface, ErrorHandler};
 
 pub struct ExampleInterface {
     value: u64
 }
 
-#[scpi::interface]
+impl ErrorHandler for ExampleInterface {
+    fn handle_error(&mut self, error: scpi::Error) {
+        println!("Error: {error}");
+    }
+}
+
+#[microscpi::interface]
 impl ExampleInterface {
     #[scpi(cmd = "SYSTem:VALue?")]
-    pub async fn system_value(&mut self) -> Result<u64, scpi::Error> {
+    async fn system_value(&mut self) -> Result<u64, scpi::Error> {
         Ok(self.value)
     }
 }
@@ -35,10 +41,9 @@ impl ExampleInterface {
 #[tokio::main]
 pub async fn main() {
     let mut output = String::new();
-    let interface = ExampleInterface { value: 42 };
+    let mut interface = ExampleInterface { value: 42 };
 
-    let mut interpreter = scpi::Interpreter::new(interface);
-    interpreter.parse_and_execute(b"SYSTEM:VAL?\n", &mut output).await;
+    interface.parse_and_execute(b"SYSTEM:VAL?\n", &mut output).await;
 
     assert_eq!(output, "42\n");
 }
@@ -50,7 +55,7 @@ To use this crate in your project, add the following line to your `Cargo.toml` f
 
 ```toml
 [dependencies]
-microscpi = "0.1.0-alpha"
+microscpi = "0.1.0-alpha.3"
 ```
 
 Make sure to include the async runtime such as `tokio` or another suitable runtime for executing async functions. 

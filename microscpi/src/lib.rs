@@ -9,10 +9,16 @@
 //! # Minimal Example
 //! ```
 //! use microscpi as scpi;
-//! use microscpi::{Interface};
+//! use microscpi::Interface;
 //!
 //! pub struct ExampleInterface {
 //!     value: u64
+//! }
+//! 
+//! impl scpi::ErrorHandler for ExampleInterface {
+//!     fn handle_error(&mut self, error: scpi::Error) {
+//!         println!("Error: {error}");
+//!     }
 //! }
 //!
 //! #[scpi::interface]
@@ -20,12 +26,6 @@
 //!     #[scpi(cmd = "SYSTem:VALue?")]
 //!     async fn system_value(&mut self) -> Result<u64, scpi::Error> {
 //!         Ok(self.value)
-//!     }
-//! }
-//!
-//! impl scpi::ErrorHandler for ExampleInterface {
-//!     fn handle_error(&mut self, error: scpi::Error) {
-//!         println!("Error: {error}");
 //!     }
 //! }
 //!
@@ -56,12 +56,23 @@ mod response;
 mod tree;
 mod value;
 
+pub use error::Error;
+pub use error_queue::{ErrorQueue, StaticErrorQueue};
+pub use interface::{ErrorHandler, Interface};
+pub use microscpi_macros::interface;
+pub use response::{Mnemonic, Response};
+#[doc(hidden)]
+pub use tree::Node;
+pub use value::Value;
+
 /// Reference identifier of a command or query
 ///
 /// Due to current limitations with async function pointers, the references to
 /// the command handler functions are stored as integers.
 #[doc(hidden)]
 pub type CommandId = usize;
+
+pub type Result<T> = core::result::Result<T, Error>;
 
 /// The version of the SCPI standard this crate implements.
 pub const SCPI_STD_VERSION: &str = "1999.0";
@@ -73,11 +84,6 @@ pub const MAX_ARGS: usize = 10;
 /// The size of the output buffer used for the embedded io handler.
 pub const OUTPUT_BUFFER_SIZE: usize = 100;
 
-pub use error::Error;
-pub use error_queue::{ErrorQueue, StaticErrorQueue};
-pub use interface::{ErrorHandler, Interface};
-pub use microscpi_macros::interface;
-pub use response::{Mnemonic, Response};
-#[doc(hidden)]
-pub use tree::Node;
-pub use value::Value;
+#[cfg(doctest)]
+#[doc = include_str!("../../README.md")]
+struct ReadmeDoctests;
