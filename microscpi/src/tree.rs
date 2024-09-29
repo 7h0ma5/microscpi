@@ -1,8 +1,4 @@
-/// Reference identifier of a command or query
-///
-/// Due to current limitations with async function pointers, the references to
-/// the command handler functions are stored as integers.
-pub type CommandId = usize;
+use crate::CommandId;
 
 /// SCPI Command Tree
 ///

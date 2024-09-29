@@ -5,7 +5,6 @@ use crate::Error;
 /// SCPI argument value
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Value<'a> {
-    Void,
     String(&'a str),
     Mnemonic(&'a str),
     /// A number that has not been completely parsed yet.

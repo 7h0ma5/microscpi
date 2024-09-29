@@ -4,7 +4,7 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
-use syn::{parse_macro_input, Attribute, Expr, Ident, ItemImpl, Lit, Type};
+use syn::{parse_macro_input, Path, Attribute, Expr, Ident, ItemImpl, Lit, Type};
 
 mod command;
 mod tree;
@@ -14,7 +14,13 @@ use tree::Tree;
 
 enum CommandHandler {
     UserFunction(Ident),
-    ContextFunction(&'static str),
+    StandardFunction(&'static str),
+}
+
+#[derive(Default)]
+struct Config {
+    pub error_commands: bool,
+    pub standard_commands: bool
 }
 
 struct CommandDefinition {
@@ -22,6 +28,7 @@ struct CommandDefinition {
     pub command: Command,
     pub handler: CommandHandler,
     pub args: Vec<Type>,
+    pub future: bool,
 }
 
 impl CommandDefinition {
@@ -45,18 +52,25 @@ impl CommandDefinition {
         let fn_call = match &self.handler {
             CommandHandler::UserFunction(ident) => {
                 let func = ident.clone();
-                quote! { self.#func(#args).await? }
+                quote! { self.#func(#args) }
             }
-            CommandHandler::ContextFunction(ident) => {
-                let func = format_ident!("{}", ident);
-                quote! { context.#func(#args).await? }
-            }
+            CommandHandler::StandardFunction(path) => {
+                let path: Path = syn::parse(path.parse().unwrap()).unwrap();
+                quote! { ::microscpi::commands::#path(self, #args) }
+            } 
+        };
+
+        let fn_call = if self.future {
+            quote! { #fn_call.await? }
+        }
+        else {
+            quote! { #fn_call? }
         };
 
         quote! {
             #command_id => {
                 if args.len() != #arg_count {
-                    Err(microscpi::Error::UnexpectedNumberOfParameters)
+                    Err(::microscpi::Error::UnexpectedNumberOfParameters)
                 }
                 else {
                     let result = #fn_call;
@@ -143,6 +157,7 @@ fn extract_commands(input: &mut ItemImpl) -> Vec<Rc<CommandDefinition>> {
                     command: cmd.clone(),
                     handler: CommandHandler::UserFunction(item_fn.sig.ident.to_owned()),
                     args,
+                    future: true
                 });
                 commands.push(cmd_def.clone());
             }
@@ -156,33 +171,52 @@ fn extract_commands(input: &mut ItemImpl) -> Vec<Rc<CommandDefinition>> {
 /// This attribute will process an `impl` block and register the SCPI commands
 /// defined within it.
 #[proc_macro_attribute]
-pub fn interface(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let attrs: Punctuated<Path, Comma> = parse_macro_input!(attr with Punctuated::parse_terminated);
     let mut input = parse_macro_input!(item as ItemImpl);
+   
+    let mut config = Config::default();
+
+    for path in attrs {
+        if path.is_ident("ErrorCommands") {
+            config.error_commands = true;
+        }
+        else if path.is_ident("StandardCommands") {
+            config.standard_commands = true;
+        }
+    }
 
     let impl_ty = input.self_ty.clone();
 
     let mut commands = extract_commands(&mut input);
 
-    commands.push(Rc::new(CommandDefinition {
-        id: commands.len(),
-        args: Vec::new(),
-        command: Command::try_from("SYSTem:VERSion?").unwrap(),
-        handler: CommandHandler::ContextFunction("system_version"),
-    }));
+    if config.standard_commands {
+        commands.push(Rc::new(CommandDefinition {
+            id: commands.len(),
+            args: Vec::new(),
+            command: Command::try_from("SYSTem:VERSion?").unwrap(),
+            handler: CommandHandler::StandardFunction("StandardCommands::system_version"),
+            future: false
+        }));
+    }
 
-    commands.push(Rc::new(CommandDefinition {
-        id: commands.len(),
-        args: Vec::new(),
-        command: Command::try_from("SYSTem:ERRor:[NEXT]?").unwrap(),
-        handler: CommandHandler::ContextFunction("system_error_next"),
-    }));
+    if config.error_commands {
+        commands.push(Rc::new(CommandDefinition {
+            id: commands.len(),
+            args: Vec::new(),
+            command: Command::try_from("SYSTem:ERRor:[NEXT]?").unwrap(),
+            handler: CommandHandler::StandardFunction("ErrorCommands::system_error_next"),
+            future: false
+        }));
 
-    commands.push(Rc::new(CommandDefinition {
-        id: commands.len(),
-        args: Vec::new(),
-        command: Command::try_from("SYSTem:ERRor:COUNt?").unwrap(),
-        handler: CommandHandler::ContextFunction("system_error_count"),
-    }));
+        commands.push(Rc::new(CommandDefinition {
+            id: commands.len(),
+            args: Vec::new(),
+            command: Command::try_from("SYSTem:ERRor:COUNt?").unwrap(),
+            handler: CommandHandler::StandardFunction("ErrorCommands::system_error_count"),
+            future: false
+        }));
+    }
 
     let mut tree = Tree::new();
     commands
@@ -217,7 +251,7 @@ pub fn interface(_attr: TokenStream, item: TokenStream) -> TokenStream {
         };
 
         let node_item = quote! {
-            static #node_name: microscpi::Node = microscpi::Node {
+            static #node_name: ::microscpi::Node = ::microscpi::Node {
                 children: &[
                     #(#entries),*
                 ],
@@ -232,21 +266,20 @@ pub fn interface(_attr: TokenStream, item: TokenStream) -> TokenStream {
     quote! {
         #(#nodes)*
         #input
-        impl microscpi::Interface for #impl_ty {
-            fn root_node(&self) -> &'static microscpi::Node {
+        impl ::microscpi::Interface for #impl_ty {
+            fn root_node(&self) -> &'static ::microscpi::Node {
                 &SCPI_NODE_0
             }
             async fn execute_command<'a>(
                 &'a mut self,
-                context: &mut microscpi::Context,
-                command_id: microscpi::CommandId,
-                args: &[microscpi::Value<'a>],
-                response: &mut impl core::fmt::Write
-            ) -> Result<(), microscpi::Error> {
-                use microscpi::Response;
+                command_id: ::microscpi::CommandId,
+                args: &[::microscpi::Value<'a>],
+                response: &mut impl ::core::fmt::Write
+            ) -> Result<(), ::microscpi::Error> {
+                use ::microscpi::Response;
                 match command_id {
                     #(#command_items),*,
-                    _ => Err(microscpi::Error::UndefinedHeader)
+                    _ => Err(::microscpi::Error::UndefinedHeader)
                 }
            }
         }

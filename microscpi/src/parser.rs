@@ -2,7 +2,8 @@ use core::str::{self, Utf8Error};
 
 use heapless::Vec;
 
-use crate::{Error, Node, Value, MAX_ARGS};
+use crate::tree::Node;
+use crate::{Error, Value, MAX_ARGS};
 
 /// Enum to handle both recoverable and fatal errors
 #[derive(Debug, PartialEq)]
@@ -316,7 +317,10 @@ pub fn test_digits() {
     assert_eq!(digits(b"12"), Ok((&b""[..], &b"12"[..])));
     assert_eq!(digits(b"12a"), Ok((&b"a"[..], &b"12"[..])));
     assert_eq!(digits(b"01234567890"), Ok((&b""[..], &b"01234567890"[..])));
-    assert_eq!(digits(b"01234567890abc"), Ok((&b"abc"[..], &b"01234567890"[..])));
+    assert_eq!(
+        digits(b"01234567890abc"),
+        Ok((&b"abc"[..], &b"01234567890"[..]))
+    );
 }
 
 #[test]
@@ -354,8 +358,5 @@ pub fn test_decimal() {
 pub fn test_arguments() {
     let mut args: Vec<Value<'_>, MAX_ARGS> = Vec::new();
     assert_eq!(arguments(&mut args)(b"123, 456\n"), Ok((&b"\n"[..], ())));
-    assert_eq!(&args[..], &[
-        Value::Decimal("123"),
-        Value::Decimal("456")
-    ]);
+    assert_eq!(&args[..], &[Value::Decimal("123"), Value::Decimal("456")]);
 }

@@ -9,6 +9,7 @@
 //! # Minimal Example
 //! ```
 //! use microscpi as scpi;
+//! use microscpi::{Interface};
 //!
 //! pub struct ExampleInterface {
 //!     value: u64
@@ -17,18 +18,23 @@
 //! #[scpi::interface]
 //! impl ExampleInterface {
 //!     #[scpi(cmd = "SYSTem:VALue?")]
-//!     pub async fn system_value(&mut self) -> Result<u64, scpi::Error> {
+//!     async fn system_value(&mut self) -> Result<u64, scpi::Error> {
 //!         Ok(self.value)
+//!     }
+//! }
+//!
+//! impl scpi::ErrorHandler for ExampleInterface {
+//!     fn handle_error(&mut self, error: scpi::Error) {
+//!         println!("Error: {error}");
 //!     }
 //! }
 //!
 //! #[tokio::main]
 //! pub async fn main() {
 //!     let mut output = String::new();
-//!     let interface = ExampleInterface { value: 42 };
-//!     let mut interpreter = scpi::Interpreter::new(interface);
+//!     let mut interface = ExampleInterface { value: 42 };
 //!
-//!     interpreter.parse_and_execute(b"SYSTEM:VAL?\n", &mut output).await;
+//!     interface.parse_and_execute(b"SYSTEM:VAL?\n", &mut output).await;
 //!
 //!     assert_eq!(output, "42\n");
 //! }
@@ -40,27 +46,38 @@
 #[cfg(feature = "std")]
 extern crate std as core;
 
-mod context;
+pub mod commands;
 mod error;
+mod error_queue;
 mod interface;
-mod interpreter;
 mod parser;
 mod response;
+#[doc(hidden)]
 mod tree;
 mod value;
 
+/// Reference identifier of a command or query
+///
+/// Due to current limitations with async function pointers, the references to
+/// the command handler functions are stored as integers.
+#[doc(hidden)]
+pub type CommandId = usize;
+
+/// The version of the SCPI standard this crate implements.
 pub const SCPI_STD_VERSION: &str = "1999.0";
 
-pub const MAX_ERRORS: usize = 10;
+/// The maximum number of arguments that can be passed to a command.
 pub const MAX_ARGS: usize = 10;
+
 #[cfg(feature = "embedded-io-async")]
+/// The size of the output buffer used for the embedded io handler.
 pub const OUTPUT_BUFFER_SIZE: usize = 100;
 
-pub use context::Context;
 pub use error::Error;
-pub use interface::Interface;
-pub use interpreter::Interpreter;
+pub use error_queue::{ErrorQueue, StaticErrorQueue};
+pub use interface::{ErrorHandler, Interface};
 pub use microscpi_macros::interface;
 pub use response::{Mnemonic, Response};
-pub use tree::{CommandId, Node};
+#[doc(hidden)]
+pub use tree::Node;
 pub use value::Value;

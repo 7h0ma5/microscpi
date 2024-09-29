@@ -1,5 +1,5 @@
-use microscpi as scpi;
-use microscpi::Interpreter;
+use microscpi::{self as scpi, ErrorQueue, StaticErrorQueue, Interface};
+use microscpi::commands::{ErrorCommands, StandardCommands};
 
 #[derive(Debug, PartialEq)]
 pub enum TestResult {
@@ -10,10 +10,19 @@ pub enum TestResult {
 }
 
 pub struct TestInterface {
+    errors: StaticErrorQueue<10>,
     result: Option<TestResult>,
 }
 
-#[scpi::interface]
+impl ErrorCommands for TestInterface {
+    fn error_queue(&mut self) -> &mut impl ErrorQueue {
+        &mut self.errors
+    }
+}
+
+impl StandardCommands for TestInterface {}
+
+#[scpi::interface(StandardCommands, ErrorCommands)]
 impl TestInterface {
     #[scpi(cmd = "*RST")]
     pub async fn rst(&mut self) -> Result<(), scpi::Error> {
@@ -55,46 +64,46 @@ impl TestInterface {
     }
 }
 
-fn setup() -> (Interpreter<TestInterface>, String) {
-    let interface = Interpreter::new(TestInterface { result: None });
+fn setup() -> (TestInterface, String) {
+    let interface = TestInterface { errors: StaticErrorQueue::new(), result: None };
     (interface, String::new())
 }
 
 #[tokio::test]
 async fn test_idn() {
-    let (mut interpreter, mut output) = setup();
-    interpreter.parse_and_execute(b"*IDN?\n", &mut output).await;
-    assert_eq!(interpreter.interface.result, Some(TestResult::IdnOk));
+    let (mut interface, mut output) = setup();
+    interface.parse_and_execute(b"*IDN?\n", &mut output).await;
+    assert_eq!(interface.result, Some(TestResult::IdnOk));
 }
 
 #[tokio::test]
 async fn test_rst() {
-    let (mut interpreter, mut output) = setup();
-    interpreter.parse_and_execute(b"*RST\n", &mut output).await;
-    assert_eq!(interpreter.interface.result, Some(TestResult::ResetOk));
+    let (mut interface, mut output) = setup();
+    interface.parse_and_execute(b"*RST\n", &mut output).await;
+    assert_eq!(interface.result, Some(TestResult::ResetOk));
 }
 
 #[tokio::test]
 async fn test_a_short() {
-    let (mut interpreter, mut output) = setup();
-    interpreter.parse_and_execute(b"TST:A\n", &mut output).await;
-    assert_eq!(interpreter.interface.result, Some(TestResult::TestA));
+    let (mut interface, mut output) = setup();
+    interface.parse_and_execute(b"TST:A\n", &mut output).await;
+    assert_eq!(interface.result, Some(TestResult::TestA));
 }
 
 #[tokio::test]
 async fn test_a_long() {
-    let (mut interpreter, mut output) = setup();
-    interpreter
+    let (mut interface, mut output) = setup();
+    interface
         .parse_and_execute(b"SYSTEM:TEST:A\r\n", &mut output)
         .await;
-    assert_eq!(interpreter.interface.result, Some(TestResult::TestA));
+    assert_eq!(interface.result, Some(TestResult::TestA));
 }
 
 #[tokio::test]
 async fn test_value_string() {
-    let (mut interpreter, mut output) = setup();
+    let (mut interface, mut output) = setup();
 
-    interpreter
+    interface
         .parse_and_execute(b"VAL:STR?\n", &mut output)
         .await;
 
@@ -103,20 +112,20 @@ async fn test_value_string() {
 
 #[tokio::test]
 async fn test_terminators() {
-    let (mut interpreter, mut output) = setup();
+    let (mut interface, mut output) = setup();
 
     assert_eq!(
-        interpreter.parse_and_execute(b"*IDN?\n", &mut output).await,
+        interface.parse_and_execute(b"*IDN?\n", &mut output).await,
         &[][..]
     );
     assert_eq!(
-        interpreter
+        interface
             .parse_and_execute(b"*IDN?\r\n", &mut output)
             .await,
         &[][..]
     );
     assert_eq!(
-        interpreter
+        interface
             .parse_and_execute(b"*IDN?\n\r", &mut output)
             .await,
         &[b'\r'][..]
@@ -125,58 +134,58 @@ async fn test_terminators() {
 
 #[tokio::test]
 async fn test_invalid_command() {
-    let (mut interpreter, mut output) = setup();
+    let (mut interface, mut output) = setup();
 
-    interpreter.parse_and_execute(b"*IDN\n", &mut output).await;
+    interface.parse_and_execute(b"*IDN\n", &mut output).await;
     assert_eq!(
-        interpreter.context.pop_error(),
+        interface.errors.pop_error(),
         Some(scpi::Error::UndefinedHeader)
     );
-    assert_eq!(interpreter.context.pop_error(), None);
+    assert_eq!(interface.errors.pop_error(), None);
 
-    interpreter.parse_and_execute(b"FOO\n", &mut output).await;
+    interface.parse_and_execute(b"FOO\n", &mut output).await;
     assert_eq!(
-        interpreter.context.pop_error(),
+        interface.errors.pop_error(),
         Some(scpi::Error::UndefinedHeader)
     );
-    assert_eq!(interpreter.context.pop_error(), None);
+    assert_eq!(interface.errors.pop_error(), None);
 
-    interpreter
+    interface
         .parse_and_execute(b"FOO:BAR\n", &mut output)
         .await;
     assert_eq!(
-        interpreter.context.pop_error(),
+        interface.errors.pop_error(),
         Some(scpi::Error::UndefinedHeader)
     );
-    assert_eq!(interpreter.context.pop_error(), None);
+    assert_eq!(interface.errors.pop_error(), None);
 
-    interpreter
+    interface
         .parse_and_execute(b"SYST:FOO\n", &mut output)
         .await;
     assert_eq!(
-        interpreter.context.pop_error(),
+        interface.errors.pop_error(),
         Some(scpi::Error::UndefinedHeader)
     );
-    assert_eq!(interpreter.context.pop_error(), None);
+    assert_eq!(interface.errors.pop_error(), None);
 }
 
 #[tokio::test]
 async fn test_invalid_character() {
-    let (mut interpreter, mut output) = setup();
+    let (mut interface, mut output) = setup();
 
-    interpreter
+    interface
         .parse_and_execute("*IDN!\n".as_bytes(), &mut output)
         .await;
     assert_eq!(
-        interpreter.context.pop_error(),
+        interface.errors.pop_error(),
         Some(scpi::Error::InvalidCharacter)
     );
 }
 
 #[tokio::test]
 async fn test_arguments() {
-    let (mut interpreter, mut output) = setup();
-    interpreter
+    let (mut interface, mut output) = setup();
+    interface
         .parse_and_execute(b"MATH:OP:MULT? 123,456\n", &mut output)
         .await;
     assert_eq!(output, "56088\n");
@@ -184,8 +193,8 @@ async fn test_arguments() {
 
 #[tokio::test]
 async fn test_float() {
-    let (mut interpreter, mut output) = setup();
-    interpreter
+    let (mut interface, mut output) = setup();
+    interface
         .parse_and_execute(b"MATH:OP:MULTF? 23.42,42.23\n", &mut output)
         .await;
     assert_eq!(output, "989.0266\n");
@@ -193,50 +202,50 @@ async fn test_float() {
 
 #[tokio::test]
 async fn test_invalid_arguments() {
-    let (mut interpreter, mut output) = setup();
+    let (mut interface, mut output) = setup();
 
-    interpreter
+    interface
         .parse_and_execute(b"SYSTEM:TEST:A 123 456\n", &mut output)
         .await;
     assert_eq!(
-        interpreter.context.pop_error(),
+        interface.errors.pop_error(),
         Some(scpi::Error::InvalidCharacter)
     );
 
-    interpreter
+    interface
         .parse_and_execute(b"SYSTEM:TEST:A 123,,456\n", &mut output)
         .await;
     assert_eq!(
-        interpreter.context.pop_error(),
+        interface.errors.pop_error(),
         Some(scpi::Error::InvalidCharacter)
     );
 
-    interpreter
+    interface
         .parse_and_execute(b"SYSTEM:TEST:A ,123\n", &mut output)
         .await;
     assert_eq!(
-        interpreter.context.pop_error(),
+        interface.errors.pop_error(),
         Some(scpi::Error::InvalidCharacter)
     );
 
-    interpreter
+    interface
         .parse_and_execute(b"SYSTEM:TEST:A,123\n", &mut output)
         .await;
     assert_eq!(
-        interpreter.context.pop_error(),
+        interface.errors.pop_error(),
         Some(scpi::Error::InvalidCharacter)
     );
 
-    assert_eq!(interpreter.context.pop_error(), None);
+    assert_eq!(interface.errors.pop_error(), None);
 }
 
 #[tokio::test]
 async fn test_next_error() {
-    let (mut interpreter, mut output) = setup();
+    let (mut interface, mut output) = setup();
 
-    interpreter.context.push_error(scpi::Error::SystemError);
+    interface.errors.push_error(scpi::Error::SystemError);
 
-    interpreter
+    interface
         .parse_and_execute(b"SYST:ERR:NEXT?\n", &mut output)
         .await;
 
@@ -244,7 +253,7 @@ async fn test_next_error() {
 
     output.clear();
 
-    interpreter
+    interface
         .parse_and_execute(b"SYST:ERR:NEXT?\n", &mut output)
         .await;
 

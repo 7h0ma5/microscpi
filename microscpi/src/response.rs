@@ -1,5 +1,8 @@
 use core::fmt::{Error, Write};
 
+/// An SCPI mnemonic.
+/// 
+/// This represents a defined value in SCPI
 pub struct Mnemonic<'a>(pub &'a str);
 
 pub trait Response {
