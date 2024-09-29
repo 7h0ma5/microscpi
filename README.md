@@ -1,6 +1,7 @@
 [![build](https://github.com/7h0ma5/microscpi/workflows/build/badge.svg)](https://github.com/7h0ma5/microscpi/actions)
 [![Latest version](https://img.shields.io/crates/v/microscpi.svg)](https://crates.io/crates/microscpi)
-[![Documentation](https://docs.rs/microscpi/badge.svg)](https://docs.rs/microscpi)
+[![Documentation](https://img.shields.io/docsrs/microscpi)](https://docs.rs/microscpi)
+[![Codecov](https://img.shields.io/codecov/c/github/7h0ma5/microscpi)](https://codecov.io/github/7h0ma5/microscpi)
 
 # `microscpi` Crate
 
