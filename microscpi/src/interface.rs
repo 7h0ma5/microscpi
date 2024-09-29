@@ -73,7 +73,7 @@ pub trait Interface: ErrorHandler {
     }
 
     #[cfg(feature = "embedded-io-async")]
-    pub async fn process<R, W>(&mut self, mut input: R, mut output: W) -> Result<(), R::Error>
+    async fn process<R, W>(&mut self, mut input: R, mut output: W) -> Result<(), R::Error>
     where
         R: BufRead,
         W: Write,
