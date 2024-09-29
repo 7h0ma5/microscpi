@@ -152,12 +152,14 @@ fn extract_commands(input: &mut ItemImpl) -> Vec<Rc<CommandDefinition>> {
                     })
                     .collect();
 
+                let is_future = item_fn.sig.asyncness.is_some();
+
                 let cmd_def = Rc::new(CommandDefinition {
                     id: commands.len(),
                     command: cmd.clone(),
                     handler: CommandHandler::UserFunction(item_fn.sig.ident.to_owned()),
                     args,
-                    future: true
+                    future: is_future
                 });
                 commands.push(cmd_def.clone());
             }
