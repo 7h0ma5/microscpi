@@ -189,6 +189,12 @@ async fn test_arguments() {
         .parse_and_execute(b"MATH:OP:MULT? 123,456\n", &mut output)
         .await;
     assert_eq!(output, "56088\n");
+
+    let (mut interface, mut output) = setup();
+    interface
+        .parse_and_execute(b"MATH:OP:MULT? #H7B,#Q710\n", &mut output)
+        .await;
+    assert_eq!(output, "56088\n");
 }
 
 #[tokio::test]

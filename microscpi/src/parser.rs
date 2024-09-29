@@ -5,7 +5,7 @@ use heapless::Vec;
 use crate::tree::Node;
 use crate::{Error, Value, MAX_ARGS};
 
-/// Enum to handle both recoverable and fatal errors
+/// Enum to handle both recoverable and fatal errors.
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
     /// Recoverable error (continue trying other paths)
@@ -37,7 +37,7 @@ impl From<Utf8Error> for ParseError {
     }
 }
 
-/// A Result type that propagates ParseError
+/// Type alias for the parser result.
 type ParseResult<'a, T> = Result<(&'a [u8], T), ParseError>;
 
 #[derive(Debug, PartialEq)]
@@ -47,6 +47,10 @@ pub struct CommandCall<'a> {
     pub args: Vec<Value<'a>, MAX_ARGS>,
 }
 
+/// Takes bytes while the predicate function is true.
+///
+/// Returns a tuple with the remaining input and the slice of bytes that were
+/// taken.
 fn take_while<F>(pred: F) -> impl Fn(&[u8]) -> ParseResult<&[u8]>
 where
     F: Fn(u8) -> bool,
@@ -57,6 +61,7 @@ where
     }
 }
 
+/// Takes a single byte that satisfies the predicate function.
 fn satisfy<F>(pred: F) -> impl Fn(&[u8]) -> ParseResult<u8>
 where
     F: Fn(u8) -> bool,
@@ -68,6 +73,9 @@ where
     }
 }
 
+/// Makes a parser optional.
+///
+/// If the parser fails, the result is None.
 fn optional<'a, F, G>(parser: F) -> impl Fn(&'a [u8]) -> ParseResult<'a, Option<G>>
 where
     F: Fn(&'a [u8]) -> ParseResult<'a, G>,
@@ -80,11 +88,12 @@ where
     }
 }
 
+/// Checks if a byte is a whitespace character according to IEEE 488.2)
 fn is_whitespace(input: u8) -> bool {
     matches!(input, 0u8..=9u8 | 11u8..=32u8)
 }
 
-/// Reads a whitespace token (IEEE 488.2 7.4.1.2)
+/// Parses whitespace characters.
 fn whitespace(input: &[u8]) -> ParseResult<&[u8]> {
     match take_while(is_whitespace)(input) {
         // If no input is remaning, the input is incomplete.
@@ -98,38 +107,43 @@ fn whitespace(input: &[u8]) -> ParseResult<&[u8]> {
     }
 }
 
+/// Parses a single specific byte.
 fn tag(tag: u8) -> impl Fn(&[u8]) -> ParseResult<u8> {
     satisfy(move |byte| byte == tag)
 }
 
+/// Parses a terminator (newline character).
 fn terminator(input: &[u8]) -> ParseResult<u8> {
     tag(b'\n')(input)
 }
 
+/// Parses a sequence of digits.
 fn digits(input: &[u8]) -> ParseResult<&[u8]> {
     let (i1, _) = satisfy(|c| c.is_ascii_digit())(input)?;
     let (i2, res) = take_while(|c| c.is_ascii_digit())(i1)?;
     Ok((i2, &input[..res.len() + 1]))
 }
 
-/// Parses a program mnemonic
+/// Parses a program mnemonic (e.g., "SYSTEM").
 fn program_mnemonic(input: &[u8]) -> ParseResult<&[u8]> {
     let (i1, _) = satisfy(|c| c.is_ascii_alphabetic())(input)?;
     let (i2, res) = take_while(|c| c.is_ascii_alphanumeric() || c == b'_')(i1)?;
     Ok((i2, &input[..res.len() + 1]))
 }
 
+/// Parses a sign character (`+` or `-`).
 fn sign(input: &[u8]) -> ParseResult<u8> {
     tag(b'+')(input).or_else(|_| tag(b'-')(input))
 }
 
-/// Parses a mnemonic value
+/// Parses a mnemonic value.
 fn mnemonic(input: &[u8]) -> ParseResult<Value<'_>> {
     let (input, res) = program_mnemonic(input)?;
     let mnemonic_str = str::from_utf8(res)?;
     Ok((input, Value::Mnemonic(mnemonic_str)))
 }
 
+/// Parses the mantissa part of a decimal number.
 fn mantissa(input: &[u8]) -> ParseResult<&[u8]> {
     let (i1, _sign) = optional(sign)(input)?;
     let (i2, d1) = optional(digits)(i1)?;
@@ -143,6 +157,7 @@ fn mantissa(input: &[u8]) -> ParseResult<&[u8]> {
     Ok((i4, &input[..input.len() - i4.len()]))
 }
 
+/// Parses the exponent part of a decimal number.
 fn exponent(input: &[u8]) -> ParseResult<&[u8]> {
     let (i1, _) = satisfy(|c| c == b'E' || c == b'e')(input)?;
     let (i2, _) = optional(sign)(i1)?;
@@ -150,6 +165,7 @@ fn exponent(input: &[u8]) -> ParseResult<&[u8]> {
     Ok((i3, &input[..input.len() - i3.len()]))
 }
 
+/// Parses a decimal number.
 fn decimal_numeric_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
     let (i1, _) = mantissa(input)?;
     let (i2, _) = optional(exponent)(i1)?;
@@ -157,6 +173,37 @@ fn decimal_numeric_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
     Ok((i2, Value::Decimal(res)))
 }
 
+/// Parses a hexadecimal number.
+fn hexadecimal_numeric_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
+    let (i1, _) = tag(b'#')(input)?;
+    let (i2, _) = satisfy(|c| c == b'H' || c == b'h')(i1)?;
+    let (i3, _) = satisfy(|c| c.is_ascii_hexdigit())(i2)?;
+    let (i4, _) = take_while(|c| c.is_ascii_hexdigit())(i3)?;
+    let res = str::from_utf8(&i2[..i2.len() - i4.len()])?;
+    Ok((i4, Value::Hexadecimal(res)))
+}
+
+/// Parses a binary number.
+fn binary_numeric_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
+    let (i1, _) = tag(b'#')(input)?;
+    let (i2, _) = satisfy(|c| c == b'B' || c == b'b')(i1)?;
+    let (i3, _) = satisfy(|c| c == b'0' || c == b'1')(i2)?;
+    let (i4, _) = take_while(|c| c == b'0' || c == b'1')(i3)?;
+    let res = str::from_utf8(&i2[..i2.len() - i4.len()])?;
+    Ok((i4, Value::Binary(res)))
+}
+
+/// Parses an octal number.
+fn octal_numeric_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
+    let (i1, _) = tag(b'#')(input)?;
+    let (i2, _) = satisfy(|c| c == b'Q' || c == b'q')(i1)?;
+    let (i3, _) = satisfy(|c| (b'0'..b'8').contains(&c))(i2)?;
+    let (i4, _) = take_while(|c| (b'0'..b'8').contains(&c))(i3)?;
+    let res = str::from_utf8(&i2[..i2.len() - i4.len()])?;
+    Ok((i4, Value::Octal(res)))
+}
+
+/// Parses a header separator (colon with optional whitespace).
 fn header_separator(input: &[u8]) -> ParseResult<()> {
     let (input, _) = optional(whitespace)(input)?;
     let (input, _) = tag(b':')(input).map_err(|_| Error::HeaderSeparatorError)?;
@@ -164,7 +211,7 @@ fn header_separator(input: &[u8]) -> ParseResult<()> {
     Ok((input, ()))
 }
 
-/// Parses a common command program header (e.g., "*IDN")
+/// Parses a common command program header (e.g., "*IDN").
 fn common_command_program_header(
     root: &'static Node,
 ) -> impl Fn(&[u8]) -> ParseResult<&'static Node> {
@@ -180,7 +227,7 @@ fn common_command_program_header(
     }
 }
 
-/// Parses a compound command program header (e.g., "SYST:ERR")
+/// Parses a compound command program header (e.g., "SYST:ERR").
 fn compound_command_program_header(
     root: &'static Node,
 ) -> impl Fn(&[u8]) -> ParseResult<&'static Node> {
@@ -208,7 +255,7 @@ fn compound_command_program_header(
     }
 }
 
-/// Parses the command program header (both common and compound)
+/// Parses the command program header (both common and compound).
 fn command_program_header(root: &'static Node) -> impl Fn(&[u8]) -> ParseResult<&'static Node> {
     move |input: &[u8]| {
         compound_command_program_header(root)(input)
@@ -216,7 +263,7 @@ fn command_program_header(root: &'static Node) -> impl Fn(&[u8]) -> ParseResult<
     }
 }
 
-/// Parses an argument separator (comma with optional whitespace)
+/// Parses an argument separator (comma with optional whitespace).
 fn argument_separator(input: &[u8]) -> ParseResult<()> {
     let (input, _) = optional(whitespace)(input)?;
     let (input, _) = tag(b',')(input).map_err(|_| Error::InvalidSeparator)?;
@@ -224,12 +271,16 @@ fn argument_separator(input: &[u8]) -> ParseResult<()> {
     Ok((input, ()))
 }
 
-/// Parses an argument (mnemonic or number)
+/// Parses an argument value.
 fn argument(input: &[u8]) -> ParseResult<Value<'_>> {
-    mnemonic(input).or_else(|_| decimal_numeric_program_data(input))
+    mnemonic(input)
+        .or_else(|_| decimal_numeric_program_data(input))
+        .or_else(|_| hexadecimal_numeric_program_data(input))
+        .or_else(|_| binary_numeric_program_data(input))
+        .or_else(|_| octal_numeric_program_data(input))
 }
 
-/// Parses multiple arguments separated by commas
+/// Parses multiple arguments separated by commas.
 fn arguments<'a, 'b>(
     args: &'b mut Vec<Value<'a>, MAX_ARGS>,
 ) -> impl 'b + FnMut(&'a [u8]) -> ParseResult<'a, ()> {
@@ -254,7 +305,7 @@ fn arguments<'a, 'b>(
     }
 }
 
-/// The main parsing function
+/// Parses a SCPI command call.
 pub fn parse<'a>(root: &'static Node, input: &'a [u8]) -> ParseResult<'a, CommandCall<'a>> {
     // Skip optional whitespace
     let (input, _) = optional(whitespace)(input)?;
@@ -532,6 +583,103 @@ mod tests {
         assert_eq!(
             parse(&ROOT_NODE, b"*XYZ\n"),
             Err(Error::UndefinedHeader.into())
+        );
+    }
+
+    #[test]
+    pub fn test_hexadecimal() {
+        assert_eq!(
+            hexadecimal_numeric_program_data(b"#H1A2B"),
+            Ok((&b""[..], Value::Hexadecimal("1A2B")))
+        );
+
+        assert_eq!(
+            hexadecimal_numeric_program_data(b"#h1a2b"),
+            Ok((&b""[..], Value::Hexadecimal("1a2b")))
+        );
+
+        assert_eq!(
+            hexadecimal_numeric_program_data(b"#HXYZ"),
+            Err(Error::InvalidCharacter.into())
+        );
+    }
+
+    #[test]
+    pub fn test_binary() {
+        assert_eq!(
+            binary_numeric_program_data(b"#B1010"),
+            Ok((&b""[..], Value::Binary("1010")))
+        );
+
+        assert_eq!(
+            binary_numeric_program_data(b"#b1101"),
+            Ok((&b""[..], Value::Binary("1101")))
+        );
+
+        assert_eq!(
+            binary_numeric_program_data(b"#B102"),
+            Ok((&b"2"[..], Value::Binary("10")))
+        );
+    }
+
+    #[test]
+    pub fn test_octal() {
+        assert_eq!(
+            octal_numeric_program_data(b"#Q123"),
+            Ok((&b""[..], Value::Octal("123")))
+        );
+
+        assert_eq!(
+            octal_numeric_program_data(b"#q456"),
+            Ok((&b""[..], Value::Octal("456")))
+        );
+
+        assert_eq!(
+            octal_numeric_program_data(b"#Q89"),
+            Err(Error::InvalidCharacter.into())
+        );
+    }
+
+    #[test]
+    pub fn test_parse_with_whitespace() {
+        assert_eq!(
+            parse(&ROOT_NODE, b"  *IDN?  \n"),
+            Ok((&b""[..], CommandCall {
+                node: &IDN_NODE,
+                query: true,
+                args: Vec::new()
+            }))
+        );
+
+        assert_eq!(
+            parse(&ROOT_NODE, b"  SYST:ERR  123,  456  \n"),
+            Ok((&b""[..], CommandCall {
+                node: &ERR_NODE,
+                query: false,
+                args: heapless::Vec::from_slice(&[Value::Decimal("123"), Value::Decimal("456")])
+                    .unwrap()
+            }))
+        );
+    }
+
+    #[test]
+    pub fn test_parse_incomplete() {
+        assert_eq!(
+            parse(&ROOT_NODE, b"*IDN?"),
+            Err(ParseError::Incomplete)
+        );
+    }
+
+    #[test]
+    pub fn test_parse_invalid_character() {
+        assert_eq!(
+            parse(&ROOT_NODE, b"*IDN?abc\n"),
+            Err(Error::InvalidCharacter.into())
+        );
+
+        assert_eq!(
+            parse(&ROOT_NODE, b"SYST:ERR 123, 456abc\n"),
+            Err(Error::InvalidCharacter.into())
         );
     }
 }
