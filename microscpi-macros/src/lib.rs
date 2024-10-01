@@ -4,7 +4,7 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
-use syn::{parse_macro_input, Path, Attribute, Expr, Ident, ItemImpl, Lit, Type};
+use syn::{parse_macro_input, Attribute, Expr, Ident, ItemImpl, Lit, Path, Type};
 
 mod command;
 mod tree;
@@ -20,7 +20,7 @@ enum CommandHandler {
 #[derive(Default)]
 struct Config {
     pub error_commands: bool,
-    pub standard_commands: bool
+    pub standard_commands: bool,
 }
 
 struct CommandDefinition {
@@ -57,7 +57,7 @@ impl CommandDefinition {
             CommandHandler::StandardFunction(path) => {
                 let path: Path = syn::parse(path.parse().unwrap()).unwrap();
                 quote! { ::microscpi::#path(self, #args) }
-            } 
+            }
         };
 
         let fn_call = if self.future {
@@ -159,7 +159,7 @@ fn extract_commands(input: &mut ItemImpl) -> Vec<Rc<CommandDefinition>> {
                     command: cmd.clone(),
                     handler: CommandHandler::UserFunction(item_fn.sig.ident.to_owned()),
                     args,
-                    future: is_future
+                    future: is_future,
                 });
                 commands.push(cmd_def.clone());
             }
@@ -176,7 +176,7 @@ fn extract_commands(input: &mut ItemImpl) -> Vec<Rc<CommandDefinition>> {
 pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attrs: Punctuated<Path, Comma> = parse_macro_input!(attr with Punctuated::parse_terminated);
     let mut input = parse_macro_input!(item as ItemImpl);
-   
+
     let mut config = Config::default();
 
     for path in attrs {
@@ -198,7 +198,7 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
             args: Vec::new(),
             command: Command::try_from("SYSTem:VERSion?").unwrap(),
             handler: CommandHandler::StandardFunction("StandardCommands::system_version"),
-            future: false
+            future: false,
         }));
     }
 
@@ -208,7 +208,7 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
             args: Vec::new(),
             command: Command::try_from("SYSTem:ERRor:[NEXT]?").unwrap(),
             handler: CommandHandler::StandardFunction("ErrorCommands::system_error_next"),
-            future: false
+            future: false,
         }));
 
         commands.push(Rc::new(CommandDefinition {
@@ -216,7 +216,7 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
             args: Vec::new(),
             command: Command::try_from("SYSTem:ERRor:COUNt?").unwrap(),
             handler: CommandHandler::StandardFunction("ErrorCommands::system_error_count"),
-            future: false
+            future: false,
         }));
     }
 

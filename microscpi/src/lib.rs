@@ -13,7 +13,7 @@
 //! pub struct ExampleInterface {
 //!     value: u64
 //! }
-//! 
+//!
 //! impl scpi::ErrorHandler for ExampleInterface {
 //!     fn handle_error(&mut self, error: scpi::Error) {
 //!         println!("Error: {error}");
@@ -38,7 +38,7 @@
 //!     assert_eq!(output, "42\n");
 //! }
 //! ```
-//! 
+//!
 //! # Using standard command handlers
 //! ```
 //! use microscpi::{self as scpi, Interface};
@@ -47,13 +47,13 @@
 //!     value: u64,
 //!     errors: scpi::StaticErrorQueue<10>,
 //! }
-//! 
+//!
 //! impl scpi::ErrorCommands for ExampleInterface {
 //!     fn error_queue(&mut self) -> &mut impl scpi::ErrorQueue {
-//!         &mut self.errors 
+//!         &mut self.errors
 //!     }
 //! }
-//! 
+//!
 //! impl scpi::StandardCommands for ExampleInterface {}
 //!
 //! #[scpi::interface(StandardCommands, ErrorCommands)]
@@ -68,7 +68,7 @@
 //! pub async fn main() {
 //!     let mut output = String::new();
 //!     let mut interface = ExampleInterface { value: 42, errors: scpi::StaticErrorQueue::new() };
-//! 
+//!
 //!     interface.run(b"UNKNOWN:COMMAND?\n", &mut output).await;
 //!     interface.run(b"SYST:ERROR:NEXT?\n", &mut output).await;
 //!
@@ -92,6 +92,7 @@ mod response;
 mod tree;
 mod value;
 
+pub use commands::{ErrorCommands, StandardCommands};
 pub use error::Error;
 pub use error_queue::{ErrorQueue, StaticErrorQueue};
 pub use interface::{ErrorHandler, Interface};
@@ -100,7 +101,6 @@ pub use response::{Mnemonic, Response};
 #[doc(hidden)]
 pub use tree::Node;
 pub use value::Value;
-pub use commands::{ErrorCommands, StandardCommands};
 
 /// Reference identifier of a command or query
 ///

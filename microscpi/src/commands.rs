@@ -2,7 +2,7 @@
 use crate::{Error, ErrorHandler, ErrorQueue, Mnemonic, SCPI_STD_VERSION};
 
 /// Error Commands
-/// 
+///
 /// The [ErrorCommands] trait implements the standard SCPI commands used for
 /// error management. The only requirement to implement this trait is to provide
 /// an [ErrorQueue] via the [ErrorCommands::error_queue] method. This crate
@@ -10,7 +10,7 @@ use crate::{Error, ErrorHandler, ErrorQueue, Mnemonic, SCPI_STD_VERSION};
 /// data structure: [crate::StaticErrorQueue].
 //
 /// # Implemented commands
-/// 
+///
 /// * `SYSTem:ERRor:[NEXT]?`
 /// * `SYSTem:ERRor:[COUNt]?`
 pub trait ErrorCommands {
@@ -40,9 +40,9 @@ where
 }
 
 /// Standard Commands
-/// 
+///
 /// # Implemented commands
-/// 
+///
 /// * `SYSTem:VERSion?`
 pub trait StandardCommands {
     fn system_version(&mut self) -> Result<Mnemonic, Error> {

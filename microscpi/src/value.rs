@@ -43,7 +43,9 @@ impl TryInto<u32> for &Value<'_> {
     fn try_into(self) -> Result<u32, Self::Error> {
         match self {
             Value::Decimal(data) => u32::from_str_radix(data, 10).or(Err(Error::NumericDataError)),
-            Value::Hexadecimal(data) => u32::from_str_radix(data, 16).or(Err(Error::NumericDataError)),
+            Value::Hexadecimal(data) => {
+                u32::from_str_radix(data, 16).or(Err(Error::NumericDataError))
+            }
             Value::Binary(data) => u32::from_str_radix(data, 2).or(Err(Error::NumericDataError)),
             Value::Octal(data) => u32::from_str_radix(data, 8).or(Err(Error::NumericDataError)),
             _ => Err(Error::DataTypeError),
@@ -65,7 +67,9 @@ impl TryInto<i32> for &Value<'_> {
     fn try_into(self) -> Result<i32, Self::Error> {
         match self {
             Value::Decimal(data) => i32::from_str_radix(data, 10).or(Err(Error::NumericDataError)),
-            Value::Hexadecimal(data) => i32::from_str_radix(data, 16).or(Err(Error::NumericDataError)),
+            Value::Hexadecimal(data) => {
+                i32::from_str_radix(data, 16).or(Err(Error::NumericDataError))
+            }
             Value::Binary(data) => i32::from_str_radix(data, 2).or(Err(Error::NumericDataError)),
             Value::Octal(data) => i32::from_str_radix(data, 8).or(Err(Error::NumericDataError)),
             _ => Err(Error::DataTypeError),
@@ -87,7 +91,9 @@ impl TryInto<u64> for &Value<'_> {
     fn try_into(self) -> Result<u64, Self::Error> {
         match self {
             Value::Decimal(data) => u64::from_str_radix(data, 10).or(Err(Error::NumericDataError)),
-            Value::Hexadecimal(data) => u64::from_str_radix(data, 16).or(Err(Error::NumericDataError)),
+            Value::Hexadecimal(data) => {
+                u64::from_str_radix(data, 16).or(Err(Error::NumericDataError))
+            }
             Value::Binary(data) => u64::from_str_radix(data, 2).or(Err(Error::NumericDataError)),
             Value::Octal(data) => u64::from_str_radix(data, 8).or(Err(Error::NumericDataError)),
             _ => Err(Error::DataTypeError),
@@ -109,7 +115,9 @@ impl TryInto<i64> for &Value<'_> {
     fn try_into(self) -> Result<i64, Self::Error> {
         match self {
             Value::Decimal(data) => i64::from_str_radix(data, 10).or(Err(Error::NumericDataError)),
-            Value::Hexadecimal(data) => i64::from_str_radix(data, 16).or(Err(Error::NumericDataError)),
+            Value::Hexadecimal(data) => {
+                i64::from_str_radix(data, 16).or(Err(Error::NumericDataError))
+            }
             Value::Binary(data) => i64::from_str_radix(data, 2).or(Err(Error::NumericDataError)),
             Value::Octal(data) => i64::from_str_radix(data, 8).or(Err(Error::NumericDataError)),
             _ => Err(Error::DataTypeError),
@@ -235,7 +243,6 @@ mod tests {
         assert_eq!(Value::Hexadecimal("7B").try_into(), Ok(123u32));
         assert_eq!(Value::Binary("1111011").try_into(), Ok(123u32));
         assert_eq!(Value::Octal("173").try_into(), Ok(123u32));
-        
     }
 
     #[test]

@@ -4,7 +4,7 @@ use embedded_io_async::{BufRead, Write};
 use crate::parser::{self, CommandCall};
 #[cfg(feature = "embedded-io-async")]
 use crate::OUTPUT_BUFFER_SIZE;
-use crate::{CommandId, tree, Error, Value};
+use crate::{tree, CommandId, Error, Value};
 
 pub trait ErrorHandler {
     fn handle_error(&mut self, _error: Error);
@@ -93,7 +93,7 @@ pub trait Interface: ErrorHandler {
                 let terminator_index = read_from + offset;
 
                 let data = &buf[read_from..=terminator_index];
-                self.parse_and_execute(data, &mut output_buffer).await;
+                self.run(data, &mut output_buffer).await;
 
                 #[cfg(feature = "defmt")]
                 defmt::trace!("Data: {}", data);

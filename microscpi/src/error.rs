@@ -544,7 +544,7 @@ impl From<ParseError> for Error {
         match value {
             ParseError::SoftError(error) => error.unwrap_or(Error::SyntaxError),
             ParseError::FatalError(error) => error,
-            ParseError::Incomplete => Error::SyntaxError
+            ParseError::Incomplete => Error::SyntaxError,
         }
     }
 }
@@ -566,7 +566,10 @@ mod tests {
         assert_eq!(format!("{}", Error::CommandError), "Command error");
         assert_eq!(format!("{}", Error::InvalidCharacter), "Invalid character");
         assert_eq!(format!("{}", Error::SyntaxError), "Syntax Error");
-        assert_eq!(format!("{}", Error::Custom(999, "Custom Error")), "Custom Error");
+        assert_eq!(
+            format!("{}", Error::Custom(999, "Custom Error")),
+            "Custom Error"
+        );
     }
 
     #[test]
@@ -594,9 +597,15 @@ mod tests {
     #[test]
     fn test_error_to_str() {
         assert_eq!(Into::<&str>::into(Error::CommandError), "Command error");
-        assert_eq!(Into::<&str>::into(Error::InvalidCharacter), "Invalid character");
+        assert_eq!(
+            Into::<&str>::into(Error::InvalidCharacter),
+            "Invalid character"
+        );
         assert_eq!(Into::<&str>::into(Error::SyntaxError), "Syntax Error");
-        assert_eq!(Into::<&str>::into(Error::Custom(999, "Custom Error")), "Custom Error");
+        assert_eq!(
+            Into::<&str>::into(Error::Custom(999, "Custom Error")),
+            "Custom Error"
+        );
     }
 
     #[test]
