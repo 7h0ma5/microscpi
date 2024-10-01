@@ -1,12 +1,27 @@
 //! This crate provides a simple interface to create an async SCPI command
-//! interpreter. It is especially suited for embedded devices.
+//! interpreter. It is especially suited for embedded devices The SCPI command
+//! tree is created at compile time using a procedural macro.
 //!
 //! Notable features are:
-//! * No heap memory allocation required.
+//! * No dynamic memory allocation used and *no_std* support.
 //! * Compile time creation of the SCPI command tree.
-//! * Support for async commmand handler functions.
+//! * Support for `async` commmand handler functions.
 //!
-//! # Minimal Example
+//! # Usage
+//!
+//! To build an SCPI interface, create a struct that implements the
+//! SCPI handler commands. The `#[interface]` attribute macro attached to the
+//! `impl` of the interface will generate the command tree and implement the
+//! functions required by the [Interface] trait. The [Interface::run] method
+//! will parse the command string, execute the corresponding command handler
+//! function and fill the output buffer with the response of the command
+//! handler function.
+//!
+//! ## Minimal Example
+//!
+//! The following example demonstrates how to create a simple SCPI interface
+//! with a single command that returns a value.
+//!
 //! ```
 //! use microscpi::{self as scpi, Interface};
 //!
@@ -39,7 +54,18 @@
 //! }
 //! ```
 //!
-//! # Using standard command handlers
+//! ## Using standard command handlers
+//!
+//! This crate provides a set of standard command handlers that can be used to
+//! implement the SCPI standard commands. The `StandardCommands` trait provides
+//! a set of default implementations for generic SCPI commands required by the
+//! IEEE 488.2 standard. The `ErrorCommands` trait provides the default error
+//! handling commands. These traits can be implemented for the interface struct
+//! to provide a default implementations for these commands.
+//!
+//! The following example demonstrates how to use the `StandardCommands` and
+//! `ErrorCommands` traits to add the SCPI standard commands.
+//!
 //! ```
 //! use microscpi::{self as scpi, Interface};
 //!
