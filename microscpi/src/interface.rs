@@ -48,6 +48,11 @@ pub trait Interface: ErrorHandler {
         Ok(())
     }
 
+    /// Parses and executes the commands in the input buffer.
+    /// 
+    /// The result is written to the response buffer. Any remaining input that
+    /// was not parsed is returned. If an error occurs, the remaining input
+    /// is returned and the error is passed to the error handler.
     async fn run<'a>(
         &mut self, mut input: &'a [u8], response: &mut impl core::fmt::Write,
     ) -> &'a [u8] {
