@@ -31,9 +31,9 @@ impl TestInterface {
     }
 
     #[scpi(cmd = "*IDN?")]
-    pub async fn idn(&mut self) -> Result<(), scpi::Error> {
+    pub async fn idn(&mut self) -> Result<&str, scpi::Error> {
         self.result = Some(TestResult::IdnOk);
-        Ok(())
+        Ok("MICROSCPI,TEST,1,1.0")
     }
 
     #[scpi(cmd = "VALue:STRing?")]
@@ -97,6 +97,13 @@ async fn test_a_long() {
         .parse_and_execute(b"SYSTEM:TEST:A\r\n", &mut output)
         .await;
     assert_eq!(interface.result, Some(TestResult::TestA));
+}
+
+#[tokio::test]
+async fn test_system_test_aq() {
+    let (mut interface, mut output) = setup();
+    interface.parse_and_execute(b"SYST:TEST:A?\n", &mut output).await;
+    assert_eq!(interface.result, Some(TestResult::TestAQ));
 }
 
 #[tokio::test]
@@ -181,29 +188,29 @@ async fn test_invalid_character() {
         Some(scpi::Error::InvalidCharacter)
     );
 }
-
 #[tokio::test]
-async fn test_arguments() {
+async fn test_math_multiply() {
     let (mut interface, mut output) = setup();
-    interface
-        .parse_and_execute(b"MATH:OP:MULT? 123,456\n", &mut output)
-        .await;
-    assert_eq!(output, "56088\n");
-
-    let (mut interface, mut output) = setup();
-    interface
-        .parse_and_execute(b"MATH:OP:MULT? #H7B,#Q710\n", &mut output)
-        .await;
-    assert_eq!(output, "56088\n");
+    interface.parse_and_execute(b"MATH:OP:MULT? 7,6\n", &mut output).await;
+    assert_eq!(output, "42\n");
 }
 
 #[tokio::test]
-async fn test_float() {
+async fn test_math_multiply_float() {
     let (mut interface, mut output) = setup();
     interface
         .parse_and_execute(b"MATH:OP:MULTF? 23.42,42.23\n", &mut output)
         .await;
     assert_eq!(output, "989.0266\n");
+}
+
+#[tokio::test]
+async fn test_math_multiply_hexadecimal() {
+    let (mut interface, mut output) = setup();
+    interface
+        .parse_and_execute(b"MATH:OP:MULT? #H7B,#Q710\n", &mut output)
+        .await;
+    assert_eq!(output, "56088\n");
 }
 
 #[tokio::test]
@@ -264,4 +271,19 @@ async fn test_next_error() {
         .await;
 
     assert_eq!(output, "0,\"\"\n");
+}
+
+#[tokio::test]
+async fn test_value_string_with_whitespace() {
+    let (mut interface, mut output) = setup();
+    interface.parse_and_execute(b"  VAL:STR?  \n", &mut output).await;
+    assert_eq!(output, "\"Hello World\"\n");
+}
+
+#[tokio::test]
+async fn test_multiple_commands() {
+    let (mut interface, mut output) = setup();
+    interface.parse_and_execute(b"*RST\n*IDN?\n", &mut output).await;
+    assert_eq!(interface.result, Some(TestResult::IdnOk));
+    assert_eq!(output, "\"MICROSCPI,TEST,1,1.0\"\n");
 }
