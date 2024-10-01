@@ -25,7 +25,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut output = String::new();
     c.bench_function("system_value", |b| {
         b.iter(|| {
-            let _ = black_box(interface.parse_and_execute(b"SYSTEM:VAL?\n", &mut output));
+            let _ = black_box(interface.run(b"SYSTEM:VAL?\n", &mut output));
         })
     });
 }

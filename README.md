@@ -43,7 +43,7 @@ pub async fn main() {
     let mut output = String::new();
     let mut interface = ExampleInterface { value: 42 };
 
-    interface.parse_and_execute(b"SYSTEM:VAL?\n", &mut output).await;
+    interface.run(b"SYSTEM:VAL?\n", &mut output).await;
 
     assert_eq!(output, "42\n");
 }

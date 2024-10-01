@@ -297,7 +297,7 @@ fn arguments<'a, 'b>(
             };
 
             let (i, arg) = argument(i)?;
-            args.push(arg).unwrap();
+            args.push(arg).or(Err(Error::UnexpectedNumberOfParameters))?;
             input = i;
         }
 

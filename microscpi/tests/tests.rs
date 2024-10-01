@@ -1,5 +1,6 @@
-use microscpi::{self as scpi, ErrorQueue, StaticErrorQueue, Interface};
-use microscpi::commands::{ErrorCommands, StandardCommands};
+use microscpi::{
+    self as scpi, ErrorCommands, ErrorQueue, Interface, StandardCommands, StaticErrorQueue,
+};
 
 #[derive(Debug, PartialEq)]
 pub enum TestResult {
@@ -65,44 +66,45 @@ impl TestInterface {
 }
 
 fn setup() -> (TestInterface, String) {
-    let interface = TestInterface { errors: StaticErrorQueue::new(), result: None };
+    let interface = TestInterface {
+        errors: StaticErrorQueue::new(),
+        result: None,
+    };
     (interface, String::new())
 }
 
 #[tokio::test]
 async fn test_idn() {
     let (mut interface, mut output) = setup();
-    interface.parse_and_execute(b"*IDN?\n", &mut output).await;
+    interface.run(b"*IDN?\n", &mut output).await;
     assert_eq!(interface.result, Some(TestResult::IdnOk));
 }
 
 #[tokio::test]
 async fn test_rst() {
     let (mut interface, mut output) = setup();
-    interface.parse_and_execute(b"*RST\n", &mut output).await;
+    interface.run(b"*RST\n", &mut output).await;
     assert_eq!(interface.result, Some(TestResult::ResetOk));
 }
 
 #[tokio::test]
 async fn test_a_short() {
     let (mut interface, mut output) = setup();
-    interface.parse_and_execute(b"TST:A\n", &mut output).await;
+    interface.run(b"TST:A\n", &mut output).await;
     assert_eq!(interface.result, Some(TestResult::TestA));
 }
 
 #[tokio::test]
 async fn test_a_long() {
     let (mut interface, mut output) = setup();
-    interface
-        .parse_and_execute(b"SYSTEM:TEST:A\r\n", &mut output)
-        .await;
+    interface.run(b"SYSTEM:TEST:A\r\n", &mut output).await;
     assert_eq!(interface.result, Some(TestResult::TestA));
 }
 
 #[tokio::test]
 async fn test_system_test_aq() {
     let (mut interface, mut output) = setup();
-    interface.parse_and_execute(b"SYST:TEST:A?\n", &mut output).await;
+    interface.run(b"SYST:TEST:A?\n", &mut output).await;
     assert_eq!(interface.result, Some(TestResult::TestAQ));
 }
 
@@ -110,9 +112,7 @@ async fn test_system_test_aq() {
 async fn test_value_string() {
     let (mut interface, mut output) = setup();
 
-    interface
-        .parse_and_execute(b"VAL:STR?\n", &mut output)
-        .await;
+    interface.run(b"VAL:STR?\n", &mut output).await;
 
     assert_eq!(output, "\"Hello World\"\n");
 }
@@ -121,54 +121,37 @@ async fn test_value_string() {
 async fn test_terminators() {
     let (mut interface, mut output) = setup();
 
-    assert_eq!(
-        interface.parse_and_execute(b"*IDN?\n", &mut output).await,
-        &[][..]
-    );
-    assert_eq!(
-        interface
-            .parse_and_execute(b"*IDN?\r\n", &mut output)
-            .await,
-        &[][..]
-    );
-    assert_eq!(
-        interface
-            .parse_and_execute(b"*IDN?\n\r", &mut output)
-            .await,
-        &[b'\r'][..]
-    );
+    assert_eq!(interface.run(b"*IDN?\n", &mut output).await, &[][..]);
+    assert_eq!(interface.run(b"*IDN?\r\n", &mut output).await, &[][..]);
+    assert_eq!(interface.run(b"*IDN?\n\r", &mut output).await, &[b'\r'][..]);
 }
 
 #[tokio::test]
 async fn test_invalid_command() {
     let (mut interface, mut output) = setup();
 
-    interface.parse_and_execute(b"*IDN\n", &mut output).await;
+    interface.run(b"*IDN\n", &mut output).await;
     assert_eq!(
         interface.errors.pop_error(),
         Some(scpi::Error::UndefinedHeader)
     );
     assert_eq!(interface.errors.pop_error(), None);
 
-    interface.parse_and_execute(b"FOO\n", &mut output).await;
+    interface.run(b"FOO\n", &mut output).await;
     assert_eq!(
         interface.errors.pop_error(),
         Some(scpi::Error::UndefinedHeader)
     );
     assert_eq!(interface.errors.pop_error(), None);
 
-    interface
-        .parse_and_execute(b"FOO:BAR\n", &mut output)
-        .await;
+    interface.run(b"FOO:BAR\n", &mut output).await;
     assert_eq!(
         interface.errors.pop_error(),
         Some(scpi::Error::UndefinedHeader)
     );
     assert_eq!(interface.errors.pop_error(), None);
 
-    interface
-        .parse_and_execute(b"SYST:FOO\n", &mut output)
-        .await;
+    interface.run(b"SYST:FOO\n", &mut output).await;
     assert_eq!(
         interface.errors.pop_error(),
         Some(scpi::Error::UndefinedHeader)
@@ -180,9 +163,7 @@ async fn test_invalid_command() {
 async fn test_invalid_character() {
     let (mut interface, mut output) = setup();
 
-    interface
-        .parse_and_execute("*IDN!\n".as_bytes(), &mut output)
-        .await;
+    interface.run("*IDN!\n".as_bytes(), &mut output).await;
     assert_eq!(
         interface.errors.pop_error(),
         Some(scpi::Error::InvalidCharacter)
@@ -191,7 +172,7 @@ async fn test_invalid_character() {
 #[tokio::test]
 async fn test_math_multiply() {
     let (mut interface, mut output) = setup();
-    interface.parse_and_execute(b"MATH:OP:MULT? 7,6\n", &mut output).await;
+    interface.run(b"MATH:OP:MULT? 7,6\n", &mut output).await;
     assert_eq!(output, "42\n");
 }
 
@@ -199,7 +180,7 @@ async fn test_math_multiply() {
 async fn test_math_multiply_float() {
     let (mut interface, mut output) = setup();
     interface
-        .parse_and_execute(b"MATH:OP:MULTF? 23.42,42.23\n", &mut output)
+        .run(b"MATH:OP:MULTF? 23.42,42.23\n", &mut output)
         .await;
     assert_eq!(output, "989.0266\n");
 }
@@ -208,7 +189,7 @@ async fn test_math_multiply_float() {
 async fn test_math_multiply_hexadecimal() {
     let (mut interface, mut output) = setup();
     interface
-        .parse_and_execute(b"MATH:OP:MULT? #H7B,#Q710\n", &mut output)
+        .run(b"MATH:OP:MULT? #H7B,#Q710\n", &mut output)
         .await;
     assert_eq!(output, "56088\n");
 }
@@ -217,33 +198,27 @@ async fn test_math_multiply_hexadecimal() {
 async fn test_invalid_arguments() {
     let (mut interface, mut output) = setup();
 
-    interface
-        .parse_and_execute(b"SYSTEM:TEST:A 123 456\n", &mut output)
-        .await;
+    interface.run(b"SYSTEM:TEST:A 123 456\n", &mut output).await;
     assert_eq!(
         interface.errors.pop_error(),
         Some(scpi::Error::InvalidCharacter)
     );
 
     interface
-        .parse_and_execute(b"SYSTEM:TEST:A 123,,456\n", &mut output)
+        .run(b"SYSTEM:TEST:A 123,,456\n", &mut output)
         .await;
     assert_eq!(
         interface.errors.pop_error(),
         Some(scpi::Error::InvalidCharacter)
     );
 
-    interface
-        .parse_and_execute(b"SYSTEM:TEST:A ,123\n", &mut output)
-        .await;
+    interface.run(b"SYSTEM:TEST:A ,123\n", &mut output).await;
     assert_eq!(
         interface.errors.pop_error(),
         Some(scpi::Error::InvalidCharacter)
     );
 
-    interface
-        .parse_and_execute(b"SYSTEM:TEST:A,123\n", &mut output)
-        .await;
+    interface.run(b"SYSTEM:TEST:A,123\n", &mut output).await;
     assert_eq!(
         interface.errors.pop_error(),
         Some(scpi::Error::InvalidCharacter)
@@ -258,17 +233,13 @@ async fn test_next_error() {
 
     interface.errors.push_error(scpi::Error::SystemError);
 
-    interface
-        .parse_and_execute(b"SYST:ERR:NEXT?\n", &mut output)
-        .await;
+    interface.run(b"SYST:ERR:NEXT?\n", &mut output).await;
 
     assert_eq!(output, "-310,\"System error\"\n");
 
     output.clear();
 
-    interface
-        .parse_and_execute(b"SYST:ERR:NEXT?\n", &mut output)
-        .await;
+    interface.run(b"SYST:ERR:NEXT?\n", &mut output).await;
 
     assert_eq!(output, "0,\"\"\n");
 }
@@ -276,14 +247,14 @@ async fn test_next_error() {
 #[tokio::test]
 async fn test_value_string_with_whitespace() {
     let (mut interface, mut output) = setup();
-    interface.parse_and_execute(b"  VAL:STR?  \n", &mut output).await;
+    interface.run(b"  VAL:STR?  \n", &mut output).await;
     assert_eq!(output, "\"Hello World\"\n");
 }
 
 #[tokio::test]
 async fn test_multiple_commands() {
     let (mut interface, mut output) = setup();
-    interface.parse_and_execute(b"*RST\n*IDN?\n", &mut output).await;
+    interface.run(b"*RST\n*IDN?\n", &mut output).await;
     assert_eq!(interface.result, Some(TestResult::IdnOk));
     assert_eq!(output, "\"MICROSCPI,TEST,1,1.0\"\n");
 }

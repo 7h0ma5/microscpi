@@ -22,6 +22,7 @@
             pkgs.libiconv
             pkgs.cargo-expand
             pkgs.cargo-release
+            pkgs.cargo-fuzz
             (pkgs.fenix.complete.withComponents [
               "cargo"
               "clippy"

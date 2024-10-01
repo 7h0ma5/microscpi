@@ -48,7 +48,7 @@ pub trait Interface: ErrorHandler {
         Ok(())
     }
 
-    async fn parse_and_execute<'a>(
+    async fn run<'a>(
         &mut self, mut input: &'a [u8], response: &mut impl core::fmt::Write,
     ) -> &'a [u8] {
         let node = self.root_node();

@@ -56,7 +56,7 @@ impl CommandDefinition {
             }
             CommandHandler::StandardFunction(path) => {
                 let path: Path = syn::parse(path.parse().unwrap()).unwrap();
-                quote! { ::microscpi::commands::#path(self, #args) }
+                quote! { ::microscpi::#path(self, #args) }
             } 
         };
 

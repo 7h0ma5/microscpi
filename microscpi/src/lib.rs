@@ -8,8 +8,7 @@
 //!
 //! # Minimal Example
 //! ```
-//! use microscpi as scpi;
-//! use microscpi::Interface;
+//! use microscpi::{self as scpi, Interface};
 //!
 //! pub struct ExampleInterface {
 //!     value: u64
@@ -34,9 +33,46 @@
 //!     let mut output = String::new();
 //!     let mut interface = ExampleInterface { value: 42 };
 //!
-//!     interface.parse_and_execute(b"SYSTEM:VAL?\n", &mut output).await;
+//!     interface.run(b"SYSTEM:VAL?\n", &mut output).await;
 //!
 //!     assert_eq!(output, "42\n");
+//! }
+//! ```
+//! 
+//! # Using standard command handlers
+//! ```
+//! use microscpi::{self as scpi, Interface};
+//!
+//! pub struct ExampleInterface {
+//!     value: u64,
+//!     errors: scpi::StaticErrorQueue<10>,
+//! }
+//! 
+//! impl scpi::ErrorCommands for ExampleInterface {
+//!     fn error_queue(&mut self) -> &mut impl scpi::ErrorQueue {
+//!         &mut self.errors 
+//!     }
+//! }
+//! 
+//! impl scpi::StandardCommands for ExampleInterface {}
+//!
+//! #[scpi::interface(StandardCommands, ErrorCommands)]
+//! impl ExampleInterface {
+//!     #[scpi(cmd = "SYSTem:VALue?")]
+//!     async fn system_value(&mut self) -> Result<u64, scpi::Error> {
+//!         Ok(self.value)
+//!     }
+//! }
+//!
+//! #[tokio::main]
+//! pub async fn main() {
+//!     let mut output = String::new();
+//!     let mut interface = ExampleInterface { value: 42, errors: scpi::StaticErrorQueue::new() };
+//! 
+//!     interface.run(b"UNKNOWN:COMMAND?\n", &mut output).await;
+//!     interface.run(b"SYST:ERROR:NEXT?\n", &mut output).await;
+//!
+//!     assert_eq!(output, "-113,\"Undefined header\"\n");
 //! }
 //! ```
 #![cfg_attr(not(any(test, feature = "std")), no_std)]
@@ -46,7 +82,7 @@
 #[cfg(feature = "std")]
 extern crate std as core;
 
-pub mod commands;
+mod commands;
 mod error;
 mod error_queue;
 mod interface;
@@ -64,6 +100,7 @@ pub use response::{Mnemonic, Response};
 #[doc(hidden)]
 pub use tree::Node;
 pub use value::Value;
+pub use commands::{ErrorCommands, StandardCommands};
 
 /// Reference identifier of a command or query
 ///
