@@ -37,101 +37,51 @@ impl<'a> TryInto<&'a str> for Value<'a> {
     }
 }
 
-impl TryInto<u32> for &Value<'_> {
-    type Error = Error;
+macro_rules! impl_try_into_int {
+    ($type:ty) => {
+        impl TryInto<$type> for &Value<'_> {
+            type Error = Error;
 
-    fn try_into(self) -> Result<u32, Self::Error> {
-        match self {
-            Value::Decimal(data) => u32::from_str_radix(data, 10).or(Err(Error::NumericDataError)),
-            Value::Hexadecimal(data) => {
-                u32::from_str_radix(data, 16).or(Err(Error::NumericDataError))
+            fn try_into(self) -> Result<$type, Self::Error> {
+                match self {
+                    Value::Decimal(data) => {
+                        <$type>::from_str_radix(data, 10).or(Err(Error::NumericDataError))
+                    }
+                    Value::Hexadecimal(data) => {
+                        <$type>::from_str_radix(data, 16).or(Err(Error::NumericDataError))
+                    }
+                    Value::Binary(data) => {
+                        <$type>::from_str_radix(data, 2).or(Err(Error::NumericDataError))
+                    }
+                    Value::Octal(data) => {
+                        <$type>::from_str_radix(data, 8).or(Err(Error::NumericDataError))
+                    }
+                    _ => Err(Error::DataTypeError),
+                }
             }
-            Value::Binary(data) => u32::from_str_radix(data, 2).or(Err(Error::NumericDataError)),
-            Value::Octal(data) => u32::from_str_radix(data, 8).or(Err(Error::NumericDataError)),
-            _ => Err(Error::DataTypeError),
         }
-    }
-}
 
-impl TryInto<u32> for Value<'_> {
-    type Error = Error;
+        impl TryInto<$type> for Value<'_> {
+            type Error = Error;
 
-    fn try_into(self) -> Result<u32, Self::Error> {
-        (&self).try_into()
-    }
-}
-
-impl TryInto<i32> for &Value<'_> {
-    type Error = Error;
-
-    fn try_into(self) -> Result<i32, Self::Error> {
-        match self {
-            Value::Decimal(data) => i32::from_str_radix(data, 10).or(Err(Error::NumericDataError)),
-            Value::Hexadecimal(data) => {
-                i32::from_str_radix(data, 16).or(Err(Error::NumericDataError))
+            fn try_into(self) -> Result<$type, Self::Error> {
+                (&self).try_into()
             }
-            Value::Binary(data) => i32::from_str_radix(data, 2).or(Err(Error::NumericDataError)),
-            Value::Octal(data) => i32::from_str_radix(data, 8).or(Err(Error::NumericDataError)),
-            _ => Err(Error::DataTypeError),
         }
-    }
+    };
 }
 
-impl TryInto<i32> for Value<'_> {
-    type Error = Error;
+impl_try_into_int!(u8);
+impl_try_into_int!(i8);
+impl_try_into_int!(u16);
+impl_try_into_int!(i16);
+impl_try_into_int!(u32);
+impl_try_into_int!(i32);
+impl_try_into_int!(u64);
+impl_try_into_int!(i64);
+impl_try_into_int!(usize);
+impl_try_into_int!(isize);
 
-    fn try_into(self) -> Result<i32, Self::Error> {
-        (&self).try_into()
-    }
-}
-
-impl TryInto<u64> for &Value<'_> {
-    type Error = Error;
-
-    fn try_into(self) -> Result<u64, Self::Error> {
-        match self {
-            Value::Decimal(data) => u64::from_str_radix(data, 10).or(Err(Error::NumericDataError)),
-            Value::Hexadecimal(data) => {
-                u64::from_str_radix(data, 16).or(Err(Error::NumericDataError))
-            }
-            Value::Binary(data) => u64::from_str_radix(data, 2).or(Err(Error::NumericDataError)),
-            Value::Octal(data) => u64::from_str_radix(data, 8).or(Err(Error::NumericDataError)),
-            _ => Err(Error::DataTypeError),
-        }
-    }
-}
-
-impl TryInto<u64> for Value<'_> {
-    type Error = Error;
-
-    fn try_into(self) -> Result<u64, Self::Error> {
-        (&self).try_into()
-    }
-}
-
-impl TryInto<i64> for &Value<'_> {
-    type Error = Error;
-
-    fn try_into(self) -> Result<i64, Self::Error> {
-        match self {
-            Value::Decimal(data) => i64::from_str_radix(data, 10).or(Err(Error::NumericDataError)),
-            Value::Hexadecimal(data) => {
-                i64::from_str_radix(data, 16).or(Err(Error::NumericDataError))
-            }
-            Value::Binary(data) => i64::from_str_radix(data, 2).or(Err(Error::NumericDataError)),
-            Value::Octal(data) => i64::from_str_radix(data, 8).or(Err(Error::NumericDataError)),
-            _ => Err(Error::DataTypeError),
-        }
-    }
-}
-
-impl TryInto<i64> for Value<'_> {
-    type Error = Error;
-
-    fn try_into(self) -> Result<i64, Self::Error> {
-        (&self).try_into()
-    }
-}
 
 impl TryInto<bool> for &Value<'_> {
     type Error = Error;
