@@ -17,7 +17,7 @@ fuzz_target!(|data: &[u8]| {
         result: None,
     };
     let mut output = String::new();
-    let result = runtime.block_on(interface.run(data, &mut output));
+    let _ = runtime.block_on(interface.run(data, &mut output));
 });
 
 #[derive(Debug, PartialEq)]

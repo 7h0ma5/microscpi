@@ -161,6 +161,19 @@ where
         self.1.scpi_fmt(f)
     }
 }
+
+impl<T> Response for &[T] where T: Response {
+    fn scpi_fmt(&self, f: &mut impl Write) -> Result<(), Error> {
+        for (i, item) in self.iter().enumerate() {
+            if i > 0 {
+                f.write_char(',')?;
+            }
+            item.scpi_fmt(f)?;
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -303,5 +316,33 @@ mod tests {
         let mut buffer = String::new();
         (123, "world").scpi_fmt(&mut buffer).unwrap();
         assert_eq!(buffer, "123,\"world\"");
+    }
+
+    #[test]
+    fn test_slice_response() {
+        let mut buffer = String::new();
+        let slice: &[i32] = &[1, 2, 3, 4, 5];
+        slice.scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "1,2,3,4,5");
+
+        let mut buffer = String::new();
+        let slice: &[&str] = &["one", "two", "three"];
+        slice.scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "\"one\",\"two\",\"three\"");
+
+        let mut buffer = String::new();
+        let slice: &[bool] = &[true, false, true];
+        slice.scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "1,0,1");
+
+        let mut buffer = String::new();
+        let slice: &[f64] = &[1.1, 2.2, 3.3];
+        slice.scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "1.1,2.2,3.3");
+
+        let mut buffer = String::new();
+        let slice: &[Mnemonic] = &[Mnemonic("CMD1"), Mnemonic("CMD2")];
+        slice.scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "CMD1,CMD2");
     }
 }
