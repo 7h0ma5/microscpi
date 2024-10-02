@@ -175,7 +175,7 @@ fn extract_commands(input: &mut ItemImpl) -> Vec<Rc<CommandDefinition>> {
 #[proc_macro_attribute]
 pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attrs: Punctuated<Path, Comma> = parse_macro_input!(attr with Punctuated::parse_terminated);
-    let mut input = parse_macro_input!(item as ItemImpl);
+    let mut input_impl = parse_macro_input!(item as ItemImpl);
 
     let mut config = Config::default();
 
@@ -188,9 +188,9 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
-    let impl_ty = input.self_ty.clone();
+    let impl_ty = input_impl.self_ty.clone();
 
-    let mut commands = extract_commands(&mut input);
+    let mut commands = extract_commands(&mut input_impl);
 
     if config.standard_commands {
         commands.push(Rc::new(CommandDefinition {
@@ -265,9 +265,7 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
         nodes.push(node_item);
     }
 
-    quote! {
-        #(#nodes)*
-        #input
+    let mut interface_impl: ItemImpl = syn::parse_quote! {
         impl ::microscpi::Interface for #impl_ty {
             fn root_node(&self) -> &'static ::microscpi::Node {
                 &SCPI_NODE_0
@@ -285,6 +283,15 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
            }
         }
+    };
+
+    // Copy the generics from the main implementation
+    interface_impl.generics = input_impl.generics.clone();
+
+    quote! {
+        #(#nodes)*
+        #input_impl
+        #interface_impl
     }
     .into()
 }
