@@ -49,7 +49,7 @@ pub trait Interface: ErrorHandler {
     }
 
     /// Parses and executes the commands in the input buffer.
-    /// 
+    ///
     /// The result is written to the response buffer. Any remaining input that
     /// was not parsed is returned. If an error occurs, the remaining input
     /// is returned and the error is passed to the error handler.

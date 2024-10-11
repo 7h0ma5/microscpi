@@ -82,7 +82,6 @@ impl_try_into_int!(i64);
 impl_try_into_int!(usize);
 impl_try_into_int!(isize);
 
-
 impl TryInto<bool> for &Value<'_> {
     type Error = Error;
 

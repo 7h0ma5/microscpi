@@ -136,10 +136,20 @@ impl Response for f64 {
     }
 }
 
+impl<const N: usize> Response for heapless::String<N> {
+    fn scpi_fmt(&self, f: &mut impl Write) -> Result<(), Error> {
+        f.write_char('"')?;
+        f.write_str(self.as_str())?;
+        f.write_char('"')
+    }
+}
+
 #[cfg(feature = "std")]
 impl Response for std::string::String {
     fn scpi_fmt(&self, f: &mut impl Write) -> Result<(), Error> {
-        write!(f, "{self}")
+        f.write_char('"')?;
+        f.write_str(self.as_str())?;
+        f.write_char('"')
     }
 }
 
@@ -162,7 +172,10 @@ where
     }
 }
 
-impl<T> Response for &[T] where T: Response {
+impl<T> Response for &[T]
+where
+    T: Response,
+{
     fn scpi_fmt(&self, f: &mut impl Write) -> Result<(), Error> {
         for (i, item) in self.iter().enumerate() {
             if i > 0 {
@@ -344,5 +357,14 @@ mod tests {
         let slice: &[Mnemonic] = &[Mnemonic("CMD1"), Mnemonic("CMD2")];
         slice.scpi_fmt(&mut buffer).unwrap();
         assert_eq!(buffer, "CMD1,CMD2");
+    }
+
+    #[test]
+    fn test_heapless_string_response() {
+        let mut buffer = String::new();
+        let mut test = heapless::String::<16>::new();
+        test.push_str("Hello World").unwrap();
+        test.scpi_fmt(&mut buffer).unwrap();
+        assert_eq!(buffer, "\"Hello World\"");
     }
 }
