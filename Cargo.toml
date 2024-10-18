@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["microscpi", "microscpi-macros", "fuzz"]
+members = ["microscpi", "microscpi-macros", "microscpi/fuzz"]
 
 [workspace.package]
 authors = ["Thomas Gatzweiler <mail@thomasgatzweiler.com>"]
