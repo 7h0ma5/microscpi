@@ -112,10 +112,11 @@ mod commands;
 mod error;
 mod error_queue;
 mod interface;
-mod parser;
+#[doc(hidden)]
+pub mod parser;
 mod response;
 #[doc(hidden)]
-mod tree;
+pub mod tree;
 mod value;
 
 pub use commands::{ErrorCommands, StandardCommands};

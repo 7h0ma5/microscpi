@@ -6,7 +6,7 @@ use crate::Error;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Value<'a> {
     String(&'a str),
-    Mnemonic(&'a str),
+    Label(&'a str),
     /// A number that has not been completely parsed yet.
     ///
     /// The integer or float type this number will get converted to depends on
@@ -87,12 +87,12 @@ impl TryInto<bool> for &Value<'_> {
 
     fn try_into(self) -> Result<bool, Self::Error> {
         match self {
-            Value::Mnemonic("ON" | "on")
-            | Value::Mnemonic("TRUE" | "true")
-            | Value::Decimal("1") => Ok(true),
-            Value::Mnemonic("OFF" | "off")
-            | Value::Mnemonic("FALSE" | "false")
-            | Value::Decimal("0") => Ok(false),
+            Value::Label("ON" | "on") | Value::Label("TRUE" | "true") | Value::Decimal("1") => {
+                Ok(true)
+            }
+            Value::Label("OFF" | "off") | Value::Label("FALSE" | "false") | Value::Decimal("0") => {
+                Ok(false)
+            }
             _ => Err(Error::IllegalParameterValue),
         }
     }
@@ -150,21 +150,21 @@ mod tests {
 
     #[test]
     pub fn test_bool() {
-        assert_eq!(Value::Mnemonic("ON").try_into(), Ok(true));
-        assert_eq!(Value::Mnemonic("on").try_into(), Ok(true));
+        assert_eq!(Value::Label("ON").try_into(), Ok(true));
+        assert_eq!(Value::Label("on").try_into(), Ok(true));
         assert_eq!(Value::Decimal("1").try_into(), Ok(true));
 
-        assert_eq!(Value::Mnemonic("OFF").try_into(), Ok(false));
-        assert_eq!(Value::Mnemonic("off").try_into(), Ok(false));
+        assert_eq!(Value::Label("OFF").try_into(), Ok(false));
+        assert_eq!(Value::Label("off").try_into(), Ok(false));
         assert_eq!(Value::Decimal("0").try_into(), Ok(false));
 
         assert_eq!(
-            Value::Mnemonic("10").try_into(),
+            Value::Label("10").try_into(),
             Err::<bool, Error>(Error::IllegalParameterValue)
         );
 
         assert_eq!(
-            Value::Mnemonic("NO").try_into(),
+            Value::Label("NO").try_into(),
             Err::<bool, Error>(Error::IllegalParameterValue)
         );
     }

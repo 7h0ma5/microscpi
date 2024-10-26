@@ -136,11 +136,11 @@ fn sign(input: &[u8]) -> ParseResult<u8> {
     tag(b'+')(input).or_else(|_| tag(b'-')(input))
 }
 
-/// Parses a mnemonic value.
-fn mnemonic(input: &[u8]) -> ParseResult<Value<'_>> {
+/// Parses a label.
+fn label(input: &[u8]) -> ParseResult<Value<'_>> {
     let (input, res) = program_mnemonic(input)?;
-    let mnemonic_str = str::from_utf8(res)?;
-    Ok((input, Value::Mnemonic(mnemonic_str)))
+    let label_str = str::from_utf8(res)?;
+    Ok((input, Value::Label(label_str)))
 }
 
 /// Parses the mantissa part of a decimal number.
@@ -201,6 +201,24 @@ fn octal_numeric_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
     let (i4, _) = take_while(|c| (b'0'..b'8').contains(&c))(i3)?;
     let res = str::from_utf8(&i2[..i2.len() - i4.len()])?;
     Ok((i4, Value::Octal(res)))
+}
+
+/// Parses a single quoted string.
+fn single_quoted_string_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
+    let (i1, _) = tag(b'\'')(input)?;
+    let (i2, res) = take_while(|c| c != b'\'')(i1)?;
+    let (i3, _) = tag(b'\'')(i2)?;
+    let res = str::from_utf8(res)?;
+    Ok((i3, Value::String(res)))
+}
+
+/// Parses a double quoted string.
+fn double_quoted_string_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
+    let (i1, _) = tag(b'"')(input)?;
+    let (i2, res) = take_while(|c| c != b'"')(i1)?;
+    let (i3, _) = tag(b'"')(i2)?;
+    let res = str::from_utf8(res)?;
+    Ok((i3, Value::String(res)))
 }
 
 /// Parses a header separator (colon with optional whitespace).
@@ -273,11 +291,13 @@ fn argument_separator(input: &[u8]) -> ParseResult<()> {
 
 /// Parses an argument value.
 fn argument(input: &[u8]) -> ParseResult<Value<'_>> {
-    mnemonic(input)
+    label(input)
         .or_else(|_| decimal_numeric_program_data(input))
         .or_else(|_| hexadecimal_numeric_program_data(input))
         .or_else(|_| binary_numeric_program_data(input))
         .or_else(|_| octal_numeric_program_data(input))
+        .or_else(|_| single_quoted_string_program_data(input))
+        .or_else(|_| double_quoted_string_program_data(input))
 }
 
 /// Parses multiple arguments separated by commas.
@@ -405,15 +425,33 @@ mod tests {
     }
 
     #[test]
-    pub fn test_mnemonic() {
+    pub fn test_label() {
         assert_eq!(
-            mnemonic(b"a1b2_c3 uvw"),
-            Ok((&b" uvw"[..], Value::Mnemonic("a1b2_c3")))
+            label(b"a1b2_c3 uvw"),
+            Ok((&b" uvw"[..], Value::Label("a1b2_c3")))
         );
 
         assert_eq!(
-            mnemonic(b"142b"),
+            label(b"142b"),
             Err(ParseError::SoftError(Some(Error::InvalidCharacter)))
+        );
+    }
+
+    #[test]
+    pub fn test_string() {
+        assert_eq!(
+            single_quoted_string_program_data(b"'Hello World' abc"),
+            Ok((&b" abc"[..], Value::String("Hello World")))
+        );
+
+        assert_eq!(
+            double_quoted_string_program_data(b"\"Hello World\" uvw"),
+            Ok((&b" uvw"[..], Value::String("Hello World")))
+        );
+
+        assert_eq!(
+            single_quoted_string_program_data(b"''"),
+            Ok((&b""[..], Value::String("")))
         );
     }
 
