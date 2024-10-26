@@ -22,13 +22,11 @@ harness = false
 [features]
 std = []
 defmt = ["dep:defmt"]
-embedded-io-async = ["dep:embedded-io-async"]
 
 [dependencies]
 microscpi-macros.workspace = true
 heapless = "0.8.0"
 defmt = { version = "0.3", optional = true }
-embedded-io-async = { version = "0.6", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1.40.0", features = ["macros", "rt", "rt-multi-thread"] }

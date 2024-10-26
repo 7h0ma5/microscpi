@@ -143,10 +143,6 @@ pub const SCPI_STD_VERSION: &str = "1999.0";
 /// The maximum number of arguments that can be passed to a command.
 pub const MAX_ARGS: usize = 10;
 
-#[cfg(feature = "embedded-io-async")]
-/// The size of the output buffer used for the embedded io handler.
-pub const OUTPUT_BUFFER_SIZE: usize = 100;
-
 #[cfg(doctest)]
 #[doc = include_str!("../../README.md")]
 struct ReadmeDoctests;

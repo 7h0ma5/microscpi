@@ -1,9 +1,4 @@
-#[cfg(feature = "embedded-io-async")]
-use embedded_io_async::{BufRead, Write};
-
 use crate::parser::{self, CommandCall};
-#[cfg(feature = "embedded-io-async")]
-use crate::OUTPUT_BUFFER_SIZE;
 use crate::{tree, CommandId, Error, Value};
 
 pub trait ErrorHandler {
@@ -75,46 +70,5 @@ pub trait Interface: ErrorHandler {
             input = i;
         }
         &[][..]
-    }
-
-    #[cfg(feature = "embedded-io-async")]
-    async fn process<R, W>(&mut self, mut input: R, mut output: W) -> Result<(), R::Error>
-    where
-        R: BufRead,
-        W: Write,
-    {
-        let mut next_index: usize = 0;
-        let mut output_buffer: heapless::Vec<u8, OUTPUT_BUFFER_SIZE> = heapless::Vec::new();
-
-        loop {
-            let buf = input.fill_buf().await?;
-            let read_to = buf.len();
-            let mut read_from: usize = next_index;
-
-            #[cfg(feature = "defmt")]
-            defmt::trace!("Read from: {}, Read to: {}", read_from, read_to);
-
-            while let Some(offset) = buf[read_from..read_to].iter().position(|b| *b == b'\n') {
-                let terminator_index = read_from + offset;
-
-                let data = &buf[read_from..=terminator_index];
-                self.run(data, &mut output_buffer).await;
-
-                #[cfg(feature = "defmt")]
-                defmt::trace!("Data: {}", data);
-
-                if !output_buffer.is_empty() {
-                    output.write_all(&output_buffer).await.unwrap();
-                    output.flush().await.unwrap();
-                    output_buffer.clear();
-                }
-
-                read_from = terminator_index + 1;
-            }
-
-            input.consume(read_from);
-
-            next_index = read_to - read_from;
-        }
     }
 }
