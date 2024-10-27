@@ -51,10 +51,10 @@ pub trait Interface: ErrorHandler {
     async fn run<'a>(
         &mut self, mut input: &'a [u8], response: &mut impl core::fmt::Write,
     ) -> &'a [u8] {
-        let node = self.root_node();
+        let mut header = self.root_node();
 
         while !input.is_empty() {
-            let result = parser::parse(node, input);
+            let result = parser::parse(self.root_node(), header, input);
 
             if let Err(error) = result {
                 self.handle_error(error.into());
@@ -65,6 +65,15 @@ pub trait Interface: ErrorHandler {
 
             if let Err(error) = self.execute(&call, response).await {
                 self.handle_error(error);
+            }
+
+            if call.terminated {
+                // Reset the header to the root node if a call is ended with a terminator. 
+                header = self.root_node();
+            }
+            else if let Some(call_header) = call.header {
+                // Update the current header, if the current command is not a common command.
+                header = call_header;
             }
 
             input = i;

@@ -40,11 +40,26 @@ impl From<Utf8Error> for ParseError {
 /// Type alias for the parser result.
 type ParseResult<'a, T> = Result<(&'a [u8], T), ParseError>;
 
+/// A SCPI command call.
+///
+/// This structure represents a SCPI command call and contains the node in the
+/// SCPI command tree that the command corresponds to, whether the command is a
+/// query, the arguments of the command, whether the command is terminated by a
+/// newline, and whether the command is a common command.
 #[derive(Debug, PartialEq)]
 pub struct CommandCall<'a> {
+    /// The node in the SCPI command tree that the command corresponds to.
     pub node: &'static Node,
+    /// The parent node of this SCPI command. When the command has no header
+    /// it must be a _common command_ (starting with an asterisk).
+    pub header: Option<&'static Node>,
+    /// The command is a query (ends with a question mark).
     pub query: bool,
+    /// The arguments of the command.
     pub args: Vec<Value<'a>, MAX_ARGS>,
+    // Whether the command is terminated by a newline and resets the position in the SCPI command
+    // tree.
+    pub terminated: bool,
 }
 
 /// Takes bytes while the predicate function is true.
@@ -110,11 +125,6 @@ fn whitespace(input: &[u8]) -> ParseResult<&[u8]> {
 /// Parses a single specific byte.
 fn tag(tag: u8) -> impl Fn(&[u8]) -> ParseResult<u8> {
     satisfy(move |byte| byte == tag)
-}
-
-/// Parses a terminator (newline character).
-fn terminator(input: &[u8]) -> ParseResult<u8> {
-    tag(b'\n')(input)
 }
 
 /// Parses a sequence of digits.
@@ -232,7 +242,7 @@ fn header_separator(input: &[u8]) -> ParseResult<()> {
 /// Parses a common command program header (e.g., "*IDN").
 fn common_command_program_header(
     root: &'static Node,
-) -> impl Fn(&[u8]) -> ParseResult<&'static Node> {
+) -> impl Fn(&[u8]) -> ParseResult<(&'static Node, Option<&'static Node>)> {
     move |input: &[u8]| {
         let (i1, _) = tag(b'*')(input).map_err(|_| Error::UndefinedHeader)?;
         let (i2, res) = program_mnemonic(i1)?;
@@ -241,20 +251,27 @@ fn common_command_program_header(
             .child(str::from_utf8(name)?)
             .ok_or(Error::UndefinedHeader)?;
 
-        Ok((i2, node))
+        Ok((i2, (node, None)))
     }
 }
 
 /// Parses a compound command program header (e.g., "SYST:ERR").
 fn compound_command_program_header(
-    root: &'static Node,
-) -> impl Fn(&[u8]) -> ParseResult<&'static Node> {
+    root: &'static Node, header: &'static Node,
+) -> impl Fn(&[u8]) -> ParseResult<(&'static Node, Option<&'static Node>)> {
     move |mut input: &[u8]| {
-        let mut node = root;
-        let (i, res) = program_mnemonic(input)?;
+        let mut header = header;
+
+        // Check if the command starts with a colon.
+        let (i1, root_command) = optional(header_separator)(input)?;
+
+        // If true, we start with the root node.
+        let mut node = if root_command.is_some() { root } else { header };
+
+        let (i2, res) = program_mnemonic(i1)?;
         let name = str::from_utf8(res)?;
         node = node.child(name).ok_or(Error::UndefinedHeader)?;
-        input = i;
+        input = i2;
 
         loop {
             let i = match header_separator(input) {
@@ -265,18 +282,21 @@ fn compound_command_program_header(
 
             let (i, res) = program_mnemonic(i)?;
             let name = str::from_utf8(res)?;
+            header = node;
             node = node.child(name).ok_or(Error::UndefinedHeader)?;
             input = i;
         }
 
-        Ok((input, node))
+        Ok((input, (node, Some(header))))
     }
 }
 
 /// Parses the command program header (both common and compound).
-fn command_program_header(root: &'static Node) -> impl Fn(&[u8]) -> ParseResult<&'static Node> {
+fn command_program_header(
+    root: &'static Node, header: &'static Node,
+) -> impl Fn(&[u8]) -> ParseResult<(&'static Node, Option<&'static Node>)> {
     move |input: &[u8]| {
-        compound_command_program_header(root)(input)
+        compound_command_program_header(root, header)(input)
             .or_else(|_| common_command_program_header(root)(input))
     }
 }
@@ -327,11 +347,13 @@ fn arguments<'a, 'b>(
 }
 
 /// Parses a SCPI command call.
-pub fn parse<'a>(root: &'static Node, input: &'a [u8]) -> ParseResult<'a, CommandCall<'a>> {
+pub fn parse<'a>(
+    root: &'static Node, header: &'static Node, input: &'a [u8],
+) -> ParseResult<'a, CommandCall<'a>> {
     // Skip optional whitespace
     let (input, _) = optional(whitespace)(input)?;
 
-    let (input, node) = command_program_header(root)(input)?;
+    let (input, (node, header)) = command_program_header(root, header)(input)?;
 
     let (input, query) = tag(b'?')(input)
         .map(|(i, _)| (i, true))
@@ -354,9 +376,17 @@ pub fn parse<'a>(root: &'static Node, input: &'a [u8]) -> ParseResult<'a, Comman
     // Skip optional whitespace
     let (input, _) = optional(whitespace)(input)?;
 
-    let (input, _) = terminator(input)?;
+    let (input, terminated) = tag(b'\n')(input)
+        .map(|(i, _)| (i, true))
+        .or_else(|_| tag(b';')(input).map(|(i, _)| (i, false)))?;
 
-    Ok((input, CommandCall { node, query, args }))
+    Ok((input, CommandCall {
+        node,
+        header: header,
+        query,
+        args,
+        terminated,
+    }))
 }
 
 #[cfg(test)]
@@ -511,13 +541,6 @@ mod tests {
     }
 
     #[test]
-    pub fn test_terminator() {
-        assert_eq!(terminator(b"\n"), Ok((&b""[..], b'\n')));
-        assert_eq!(terminator(b"\nabc"), Ok((&b"abc"[..], b'\n')));
-        assert_eq!(terminator(b"abc"), Err(Error::InvalidCharacter.into()));
-    }
-
-    #[test]
     pub fn test_mantissa() {
         assert_eq!(mantissa(b"123.456"), Ok((&b""[..], &b"123.456"[..])));
         assert_eq!(mantissa(b"-123.456"), Ok((&b""[..], &b"-123.456"[..])));
@@ -548,7 +571,7 @@ mod tests {
     pub fn test_common_command_program_header() {
         assert_eq!(
             common_command_program_header(&ROOT_NODE)(b"*IDN"),
-            Ok((&b""[..], &IDN_NODE))
+            Ok((&b""[..], (&IDN_NODE, None)))
         );
 
         assert_eq!(
@@ -560,12 +583,12 @@ mod tests {
     #[test]
     pub fn test_compound_command_program_header() {
         assert_eq!(
-            compound_command_program_header(&ROOT_NODE)(b"SYST:ERR"),
-            Ok((&b""[..], &ERR_NODE))
+            compound_command_program_header(&ROOT_NODE, &ROOT_NODE)(b"SYST:ERR"),
+            Ok((&b""[..], (&ERR_NODE, Some(&SYST_NODE))))
         );
 
         assert_eq!(
-            compound_command_program_header(&ROOT_NODE)(b"SYST:XYZ"),
+            compound_command_program_header(&ROOT_NODE, &ROOT_NODE)(b"SYST:XYZ"),
             Err(Error::UndefinedHeader.into())
         );
     }
@@ -573,17 +596,17 @@ mod tests {
     #[test]
     pub fn test_command_program_header() {
         assert_eq!(
-            command_program_header(&ROOT_NODE)(b"*IDN"),
-            Ok((&b""[..], &IDN_NODE))
+            command_program_header(&ROOT_NODE, &ROOT_NODE)(b"*IDN"),
+            Ok((&b""[..], (&IDN_NODE, None)))
         );
 
         assert_eq!(
-            command_program_header(&ROOT_NODE)(b"SYST:ERR"),
-            Ok((&b""[..], &ERR_NODE))
+            command_program_header(&ROOT_NODE, &ROOT_NODE)(b"SYST:ERR"),
+            Ok((&b""[..], (&ERR_NODE, Some(&SYST_NODE))))
         );
 
         assert_eq!(
-            command_program_header(&ROOT_NODE)(b"*XYZ"),
+            command_program_header(&ROOT_NODE, &ROOT_NODE)(b"*XYZ"),
             Err(Error::UndefinedHeader.into())
         );
     }
@@ -601,26 +624,30 @@ mod tests {
     #[test]
     pub fn test_parse() {
         assert_eq!(
-            parse(&ROOT_NODE, b"*IDN?\n"),
+            parse(&ROOT_NODE, &ROOT_NODE, b"*IDN?\n"),
             Ok((&b""[..], CommandCall {
                 node: &IDN_NODE,
+                header: None,
                 query: true,
-                args: Vec::new()
+                args: Vec::new(),
+                terminated: true,
             }))
         );
 
         assert_eq!(
-            parse(&ROOT_NODE, b"SYST:ERR 123, 456\n"),
+            parse(&ROOT_NODE, &ROOT_NODE, b"SYST:ERR 123, 456\n"),
             Ok((&b""[..], CommandCall {
                 node: &ERR_NODE,
+                header: Some(&SYST_NODE),
                 query: false,
                 args: heapless::Vec::from_slice(&[Value::Decimal("123"), Value::Decimal("456")])
-                    .unwrap()
+                    .unwrap(),
+                terminated: true,
             }))
         );
 
         assert_eq!(
-            parse(&ROOT_NODE, b"*XYZ\n"),
+            parse(&ROOT_NODE, &ROOT_NODE, b"*XYZ\n"),
             Err(Error::UndefinedHeader.into())
         );
     }
@@ -682,39 +709,46 @@ mod tests {
     #[test]
     pub fn test_parse_with_whitespace() {
         assert_eq!(
-            parse(&ROOT_NODE, b"  *IDN?  \n"),
+            parse(&ROOT_NODE, &ROOT_NODE, b"  *IDN?  \n"),
             Ok((&b""[..], CommandCall {
                 node: &IDN_NODE,
+                header: None,
                 query: true,
-                args: Vec::new()
+                args: Vec::new(),
+                terminated: true,
             }))
         );
 
         assert_eq!(
-            parse(&ROOT_NODE, b"  SYST:ERR  123,  456  \n"),
+            parse(&ROOT_NODE, &ROOT_NODE, b"  SYST:ERR  123,  456  \n"),
             Ok((&b""[..], CommandCall {
                 node: &ERR_NODE,
+                header: Some(&SYST_NODE),
                 query: false,
                 args: heapless::Vec::from_slice(&[Value::Decimal("123"), Value::Decimal("456")])
-                    .unwrap()
+                    .unwrap(),
+                terminated: true,
             }))
         );
     }
 
     #[test]
     pub fn test_parse_incomplete() {
-        assert_eq!(parse(&ROOT_NODE, b"*IDN?"), Err(ParseError::Incomplete));
+        assert_eq!(
+            parse(&ROOT_NODE, &ROOT_NODE, b"*IDN?"),
+            Err(ParseError::Incomplete)
+        );
     }
 
     #[test]
     pub fn test_parse_invalid_character() {
         assert_eq!(
-            parse(&ROOT_NODE, b"*IDN?abc\n"),
+            parse(&ROOT_NODE, &ROOT_NODE, b"*IDN?abc\n"),
             Err(Error::InvalidCharacter.into())
         );
 
         assert_eq!(
-            parse(&ROOT_NODE, b"SYST:ERR 123, 456abc\n"),
+            parse(&ROOT_NODE, &ROOT_NODE, b"SYST:ERR 123, 456abc\n"),
             Err(Error::InvalidCharacter.into())
         );
     }
