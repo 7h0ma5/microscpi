@@ -68,7 +68,7 @@ pub trait Interface: ErrorHandler {
             }
 
             if call.terminated {
-                // Reset the header to the root node if a call is ended with a terminator. 
+                // Reset the header to the root node if a call is ended with a terminator.
                 header = self.root_node();
             }
             else if let Some(call_header) = call.header {

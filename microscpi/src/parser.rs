@@ -382,7 +382,7 @@ pub fn parse<'a>(
 
     Ok((input, CommandCall {
         node,
-        header: header,
+        header,
         query,
         args,
         terminated,
