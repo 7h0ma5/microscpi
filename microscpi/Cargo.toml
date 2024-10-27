@@ -32,7 +32,7 @@ defmt = { version = "0.3", optional = true }
 tokio = { version = "1.40.0", features = ["macros", "rt", "rt-multi-thread"] }
 criterion = { version = "0.5", features = ["html_reports"] }
 
-[metadata.release]
+[package.metadata.release]
 pre-release-replacements = [
     { file = "../README.md", search = 'microscpi = "[a-z0-9\\.-]+"', replace = 'microscpi = "{{version}}"' },
 ]
