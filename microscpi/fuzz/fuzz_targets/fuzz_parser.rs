@@ -28,5 +28,5 @@ static ERR_NODE: Node = Node {
 };
 
 fuzz_target!(|data: &[u8]| {
-    let _ = microscpi::parser::parse(&ROOT_NODE, data);
+    let _ = microscpi::parser::parse(&ROOT_NODE, &ROOT_NODE, data);
 });
