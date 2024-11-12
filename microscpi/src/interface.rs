@@ -14,13 +14,12 @@ pub trait Interface: ErrorHandler {
     /// arguments.
     #[doc(hidden)]
     async fn execute_command<'a>(
-        &'a mut self, command_id: CommandId, args: &[Value<'a>],
-        response: &mut impl core::fmt::Write,
+        &'a mut self, command_id: CommandId, args: &[Value<'a>], response: &mut impl crate::Write,
     ) -> Result<(), Error>;
 
     #[doc(hidden)]
     async fn execute(
-        &mut self, call: &CommandCall<'_>, response: &mut impl core::fmt::Write,
+        &mut self, call: &CommandCall<'_>, response: &mut impl crate::Write,
     ) -> Result<(), Error> {
         let command = if call.query {
             call.node.query
@@ -33,7 +32,8 @@ pub trait Interface: ErrorHandler {
             self.execute_command(command, &call.args, response).await?;
 
             if call.query {
-                response.write_char('\n')?;
+                response.write_char('\n').await?;
+                response.flush().await?;
             }
         }
         else {
@@ -48,9 +48,7 @@ pub trait Interface: ErrorHandler {
     /// The result is written to the response buffer. Any remaining input that
     /// was not parsed is returned. If an error occurs, the remaining input
     /// is returned and the error is passed to the error handler.
-    async fn run<'a>(
-        &mut self, mut input: &'a [u8], response: &mut impl core::fmt::Write,
-    ) -> &'a [u8] {
+    async fn run<'a>(&mut self, mut input: &'a [u8], response: &mut impl crate::Write) -> &'a [u8] {
         let mut header = self.root_node();
 
         while !input.is_empty() {

@@ -22,7 +22,7 @@ impl ExampleInterface {
 
 fn criterion_benchmark(c: &mut Criterion) {
     let mut interface = ExampleInterface { value: 42 };
-    let mut output = String::new();
+    let mut output = Vec::new();
     c.bench_function("system_value", |b| {
         b.iter(|| {
             let _ = black_box(interface.run(b"SYSTEM:VAL?\n", &mut output));

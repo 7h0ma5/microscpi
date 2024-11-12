@@ -13,6 +13,7 @@ tokio = { version = "1.40.0", features = ["rt", "rt-multi-thread"] }
 
 [dependencies.microscpi]
 path = ".."
+features = ["std"]
 
 [[bin]]
 name = "fuzz_interface"

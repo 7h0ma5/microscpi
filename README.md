@@ -40,12 +40,12 @@ impl ExampleInterface {
 
 #[tokio::main]
 pub async fn main() {
-    let mut output = String::new();
+    let mut output = Vec::new();
     let mut interface = ExampleInterface { value: 42 };
 
     interface.run(b"SYSTEM:VAL?\n", &mut output).await;
 
-    assert_eq!(output, "42\n");
+    assert_eq!(output, b"42\n");
 }
 ```
 

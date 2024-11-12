@@ -16,7 +16,7 @@ fuzz_target!(|data: &[u8]| {
         errors: StaticErrorQueue::new(),
         result: None,
     };
-    let mut output = String::new();
+    let mut output = Vec::new();
     let _ = runtime.block_on(interface.run(data, &mut output));
 });
 

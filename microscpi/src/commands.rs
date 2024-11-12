@@ -1,5 +1,5 @@
 //! This module containts implementations of SCPI standard commands.
-use crate::{Error, ErrorHandler, ErrorQueue, Mnemonic, SCPI_STD_VERSION};
+use crate::{Characters, Error, ErrorHandler, ErrorQueue, SCPI_STD_VERSION};
 
 /// Error Commands
 ///
@@ -45,7 +45,7 @@ where
 ///
 /// * `SYSTem:VERSion?`
 pub trait StandardCommands {
-    fn system_version(&mut self) -> Result<Mnemonic, Error> {
-        Ok(Mnemonic(SCPI_STD_VERSION))
+    fn system_version(&mut self) -> Result<Characters, Error> {
+        Ok(Characters(SCPI_STD_VERSION))
     }
 }

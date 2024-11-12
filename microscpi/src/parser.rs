@@ -1,3 +1,4 @@
+use core::num::ParseIntError;
 use core::str::{self, Utf8Error};
 
 use heapless::Vec;
@@ -34,6 +35,12 @@ impl From<Error> for ParseError {
 impl From<Utf8Error> for ParseError {
     fn from(_e: Utf8Error) -> Self {
         Error::InvalidCharacter.into()
+    }
+}
+
+impl From<ParseIntError> for ParseError {
+    fn from(_e: ParseIntError) -> Self {
+        Error::InvalidCharacterInNumber.into()
     }
 }
 
@@ -147,10 +154,10 @@ fn sign(input: &[u8]) -> ParseResult<u8> {
 }
 
 /// Parses a label.
-fn label(input: &[u8]) -> ParseResult<Value<'_>> {
+fn characters(input: &[u8]) -> ParseResult<Value<'_>> {
     let (input, res) = program_mnemonic(input)?;
-    let label_str = str::from_utf8(res)?;
-    Ok((input, Value::Label(label_str)))
+    let character_str = str::from_utf8(res)?;
+    Ok((input, Value::Characters(character_str)))
 }
 
 /// Parses the mantissa part of a decimal number.
@@ -229,6 +236,28 @@ fn double_quoted_string_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
     let (i3, _) = tag(b'"')(i2)?;
     let res = str::from_utf8(res)?;
     Ok((i3, Value::String(res)))
+}
+
+/// Parses arbitrary 8 bit binary data.
+fn arbitrary_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
+    let (i1, _) = tag(b'#')(input)?;
+    let (i2, digits) = satisfy(|c| (b'1'..b'9').contains(&c))(i1)
+        .map(|(i, value)| (i, (value - b'0') as usize))?;
+
+    if i2.len() < digits {
+        return Err(ParseError::Incomplete);
+    }
+
+    let (i3, count) = (&i2[digits..], &i2[..digits]);
+    let count = str::from_utf8(count)?;
+    let count = usize::from_str_radix(count, 10)?;
+
+    if i3.len() < count {
+        Err(ParseError::Incomplete)
+    }
+    else {
+        Ok((&i3[count..], Value::Arbitrary(&i3[..count])))
+    }
 }
 
 /// Parses a header separator (colon with optional whitespace).
@@ -311,13 +340,14 @@ fn argument_separator(input: &[u8]) -> ParseResult<()> {
 
 /// Parses an argument value.
 fn argument(input: &[u8]) -> ParseResult<Value<'_>> {
-    label(input)
+    characters(input)
         .or_else(|_| decimal_numeric_program_data(input))
         .or_else(|_| hexadecimal_numeric_program_data(input))
         .or_else(|_| binary_numeric_program_data(input))
         .or_else(|_| octal_numeric_program_data(input))
         .or_else(|_| single_quoted_string_program_data(input))
         .or_else(|_| double_quoted_string_program_data(input))
+        .or_else(|_| arbitrary_program_data(input))
 }
 
 /// Parses multiple arguments separated by commas.
@@ -455,14 +485,14 @@ mod tests {
     }
 
     #[test]
-    pub fn test_label() {
+    pub fn test_characters() {
         assert_eq!(
-            label(b"a1b2_c3 uvw"),
-            Ok((&b" uvw"[..], Value::Label("a1b2_c3")))
+            characters(b"a1b2_c3 uvw"),
+            Ok((&b" uvw"[..], Value::Characters("a1b2_c3")))
         );
 
         assert_eq!(
-            label(b"142b"),
+            characters(b"142b"),
             Err(ParseError::SoftError(Some(Error::InvalidCharacter)))
         );
     }
@@ -500,6 +530,24 @@ mod tests {
         assert_eq!(
             decimal_numeric_program_data(b"42.439E-29"),
             Ok((&b""[..], Value::Decimal("42.439E-29")))
+        );
+    }
+
+    #[test]
+    pub fn test_arbitrary() {
+        assert_eq!(
+            arbitrary_program_data(&[
+                b'#', b'1', b'6', 0x8b, 0x10, 0x6a, 0x63, 0x99, 0xaf, 0x12, 0x34
+            ]),
+            Ok((
+                &[0x12, 0x34][..],
+                Value::Arbitrary(&[0x8b, 0x10, 0x6a, 0x63, 0x99, 0xaf])
+            ))
+        );
+
+        assert_eq!(
+            arbitrary_program_data(&[b'#', b'1', b'0']),
+            Ok((&b""[..], Value::Arbitrary(&[])))
         );
     }
 

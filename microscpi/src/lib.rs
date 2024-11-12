@@ -45,12 +45,12 @@
 //!
 //! #[tokio::main]
 //! pub async fn main() {
-//!     let mut output = String::new();
+//!     let mut output = Vec::new();
 //!     let mut interface = ExampleInterface { value: 42 };
 //!
 //!     interface.run(b"SYSTEM:VAL?\n", &mut output).await;
 //!
-//!     assert_eq!(output, "42\n");
+//!     assert_eq!(output, b"42\n");
 //! }
 //! ```
 //!
@@ -92,13 +92,13 @@
 //!
 //! #[tokio::main]
 //! pub async fn main() {
-//!     let mut output = String::new();
+//!     let mut output = Vec::new();
 //!     let mut interface = ExampleInterface { value: 42, errors: scpi::StaticErrorQueue::new() };
 //!
 //!     interface.run(b"UNKNOWN:COMMAND?\n", &mut output).await;
 //!     interface.run(b"SYST:ERROR:NEXT?\n", &mut output).await;
 //!
-//!     assert_eq!(output, "-113,\"Undefined header\"\n");
+//!     assert_eq!(output, b"-113,\"Undefined header\"\n");
 //! }
 //! ```
 #![cfg_attr(not(any(test, feature = "std")), no_std)]
@@ -124,7 +124,7 @@ pub use error::Error;
 pub use error_queue::{ErrorQueue, StaticErrorQueue};
 pub use interface::{ErrorHandler, Interface};
 pub use microscpi_macros::interface;
-pub use response::{Mnemonic, Response};
+pub use response::{Arbitrary, Characters, Response, Write};
 #[doc(hidden)]
 pub use tree::Node;
 pub use value::Value;

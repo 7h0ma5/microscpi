@@ -5,17 +5,38 @@ use crate::Error;
 /// SCPI argument value
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Value<'a> {
+    /// String
+    ///
+    /// A string that is enclosed by single or double quotes.
+    /// Example: "Hello" or 'Hello'
     String(&'a str),
-    Label(&'a str),
-    /// A number that has not been completely parsed yet.
+    /// Characters
+    ///
+    /// A string that represents a constant value like *ON* or *OFF*.
+    /// It is not enclosed by quotes.
+    Characters(&'a str),
+    /// Decimal number
     ///
     /// The integer or float type this number will get converted to depends on
     /// the command that is called with this value.
+    /// Example: 3953.64
     Decimal(&'a str),
+    /// Hexadecimal number
+    ///
+    /// A number in hexadecimal format. Example `#H3A1CE96`
     Hexadecimal(&'a str),
+    /// Binary number
+    ///  
+    /// A number in binary format. Example `#B110101101`
     Binary(&'a str),
+    /// Binary number
+    ///  
+    /// A number in octal format. Example `#Q735102`
     Octal(&'a str),
-    Bool(bool),
+    /// Arbitrary data
+    ///
+    /// Raw arbitrary data bytes.
+    Arbitrary(&'a [u8]),
 }
 
 impl<'a> TryInto<&'a str> for &Value<'a> {
@@ -34,6 +55,17 @@ impl<'a> TryInto<&'a str> for Value<'a> {
 
     fn try_into(self) -> Result<&'a str, Self::Error> {
         (&self).try_into()
+    }
+}
+
+impl<'a> TryInto<&'a [u8]> for &Value<'a> {
+    type Error = Error;
+
+    fn try_into(self) -> Result<&'a [u8], Self::Error> {
+        match self {
+            Value::Arbitrary(data) => Ok(data),
+            _ => Err(Error::DataTypeError),
+        }
     }
 }
 
@@ -87,12 +119,12 @@ impl TryInto<bool> for &Value<'_> {
 
     fn try_into(self) -> Result<bool, Self::Error> {
         match self {
-            Value::Label("ON" | "on") | Value::Label("TRUE" | "true") | Value::Decimal("1") => {
-                Ok(true)
-            }
-            Value::Label("OFF" | "off") | Value::Label("FALSE" | "false") | Value::Decimal("0") => {
-                Ok(false)
-            }
+            Value::Characters("ON" | "on")
+            | Value::Characters("TRUE" | "true")
+            | Value::Decimal("1") => Ok(true),
+            Value::Characters("OFF" | "off")
+            | Value::Characters("FALSE" | "false")
+            | Value::Decimal("0") => Ok(false),
             _ => Err(Error::IllegalParameterValue),
         }
     }
@@ -150,21 +182,21 @@ mod tests {
 
     #[test]
     pub fn test_bool() {
-        assert_eq!(Value::Label("ON").try_into(), Ok(true));
-        assert_eq!(Value::Label("on").try_into(), Ok(true));
+        assert_eq!(Value::Characters("ON").try_into(), Ok(true));
+        assert_eq!(Value::Characters("on").try_into(), Ok(true));
         assert_eq!(Value::Decimal("1").try_into(), Ok(true));
 
-        assert_eq!(Value::Label("OFF").try_into(), Ok(false));
-        assert_eq!(Value::Label("off").try_into(), Ok(false));
+        assert_eq!(Value::Characters("OFF").try_into(), Ok(false));
+        assert_eq!(Value::Characters("off").try_into(), Ok(false));
         assert_eq!(Value::Decimal("0").try_into(), Ok(false));
 
         assert_eq!(
-            Value::Label("10").try_into(),
+            Value::Characters("10").try_into(),
             Err::<bool, Error>(Error::IllegalParameterValue)
         );
 
         assert_eq!(
-            Value::Label("NO").try_into(),
+            Value::Characters("NO").try_into(),
             Err::<bool, Error>(Error::IllegalParameterValue)
         );
     }

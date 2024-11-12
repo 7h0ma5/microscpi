@@ -74,7 +74,7 @@ impl CommandDefinition {
                 }
                 else {
                     let result = #fn_call;
-                    result.scpi_fmt(response).unwrap();
+                    result.write_response(response).await.unwrap();
                     Ok(())
                 }
             }
@@ -274,7 +274,7 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
                 &'a mut self,
                 command_id: ::microscpi::CommandId,
                 args: &[::microscpi::Value<'a>],
-                response: &mut impl ::core::fmt::Write
+                response: &mut impl ::microscpi::Write
             ) -> Result<(), ::microscpi::Error> {
                 use ::microscpi::Response;
                 match command_id {

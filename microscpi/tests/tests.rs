@@ -65,12 +65,12 @@ impl TestInterface {
     }
 }
 
-fn setup() -> (TestInterface, String) {
+fn setup() -> (TestInterface, Vec<u8>) {
     let interface = TestInterface {
         errors: StaticErrorQueue::new(),
         result: None,
     };
-    (interface, String::new())
+    (interface, Vec::new())
 }
 
 #[tokio::test]
@@ -114,7 +114,7 @@ async fn test_value_string() {
 
     interface.run(b"VAL:STR?\n", &mut output).await;
 
-    assert_eq!(output, "\"Hello World\"\n");
+    assert_eq!(output, b"\"Hello World\"\n");
 }
 
 #[tokio::test]
@@ -173,7 +173,7 @@ async fn test_invalid_character() {
 async fn test_math_multiply() {
     let (mut interface, mut output) = setup();
     interface.run(b"MATH:OP:MULT? 7,6\n", &mut output).await;
-    assert_eq!(output, "42\n");
+    assert_eq!(output, b"42\n");
 }
 
 #[tokio::test]
@@ -182,7 +182,7 @@ async fn test_math_multiply_float() {
     interface
         .run(b"MATH:OP:MULTF? 23.42,42.23\n", &mut output)
         .await;
-    assert_eq!(output, "989.0266\n");
+    assert_eq!(output, b"989.0266\n");
 }
 
 #[tokio::test]
@@ -191,7 +191,7 @@ async fn test_math_multiply_hexadecimal() {
     interface
         .run(b"MATH:OP:MULT? #H7B,#Q710\n", &mut output)
         .await;
-    assert_eq!(output, "56088\n");
+    assert_eq!(output, b"56088\n");
 }
 
 #[tokio::test]
@@ -235,20 +235,20 @@ async fn test_next_error() {
 
     interface.run(b"SYST:ERR:NEXT?\n", &mut output).await;
 
-    assert_eq!(output, "-310,\"System error\"\n");
+    assert_eq!(output, b"-310,\"System error\"\n");
 
     output.clear();
 
     interface.run(b"SYST:ERR:NEXT?\n", &mut output).await;
 
-    assert_eq!(output, "0,\"\"\n");
+    assert_eq!(output, b"0,\"\"\n");
 }
 
 #[tokio::test]
 async fn test_value_string_with_whitespace() {
     let (mut interface, mut output) = setup();
     interface.run(b"  VAL:STR?  \n", &mut output).await;
-    assert_eq!(output, "\"Hello World\"\n");
+    assert_eq!(output, b"\"Hello World\"\n");
 }
 
 #[tokio::test]
@@ -256,5 +256,5 @@ async fn test_multiple_commands() {
     let (mut interface, mut output) = setup();
     interface.run(b"*RST\n*IDN?\n", &mut output).await;
     assert_eq!(interface.result, Some(TestResult::IdnOk));
-    assert_eq!(output, "\"MICROSCPI,TEST,1,1.0\"\n");
+    assert_eq!(output, b"\"MICROSCPI,TEST,1,1.0\"\n");
 }
