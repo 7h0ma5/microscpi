@@ -55,7 +55,7 @@ To use this crate in your project, add the following line to your `Cargo.toml` f
 
 ```toml
 [dependencies]
-microscpi = "0.1.0"
+microscpi = "0.2.0"
 ```
 
 Make sure to include the async runtime such as `tokio` or another suitable runtime for executing async functions. 
