@@ -1,8 +1,16 @@
-use crate::parser::{self, CommandCall};
+use crate::parser::{self, CommandCall, ParseError};
 use crate::{tree, CommandId, Error, Value};
 
 pub trait ErrorHandler {
     fn handle_error(&mut self, _error: Error);
+}
+
+pub trait Adapter {
+    type Error;
+
+    async fn read(&mut self, dst: &mut [u8]) -> Result<usize, Self::Error>;
+    async fn write(&mut self, src: &[u8]) -> Result<(), Self::Error>;
+    async fn flush(&mut self) -> Result<(), Self::Error>;
 }
 
 pub trait Interface: ErrorHandler {
@@ -54,28 +62,98 @@ pub trait Interface: ErrorHandler {
         while !input.is_empty() {
             let result = parser::parse(self.root_node(), header, input);
 
-            if let Err(error) = result {
+            #[cfg(feature = "defmt")]
+            defmt::trace!("Run: {:?}", input);
+ 
+            if let Err(ParseError::Incomplete) = result {
+                #[cfg(feature = "defmt")]
+                defmt::trace!("Incomplete Input");
+                return input;
+            } 
+            else if let Err(error) = result {
+                #[cfg(feature = "defmt")]
+                defmt::trace!("Parse error");
                 self.handle_error(error.into());
                 return input;
             }
 
             let (i, call) = result.unwrap();
 
-            if let Err(error) = self.execute(&call, response).await {
-                self.handle_error(error);
-            }
+            if let Some(call) = call {
+                if let Err(error) = self.execute(&call, response).await {
+                    #[cfg(feature = "defmt")]
+                    defmt::trace!("Execution error");
+                    self.handle_error(error);
+                }
 
-            if call.terminated {
-                // Reset the header to the root node if a call is ended with a terminator.
-                header = self.root_node();
-            }
-            else if let Some(call_header) = call.header {
-                // Update the current header, if the current command is not a common command.
-                header = call_header;
+                if call.terminated {
+                    // Reset the header to the root node if a call is ended with a terminator.
+                    header = self.root_node();
+                }
+                else if let Some(call_header) = call.header {
+                    // Update the current header, if the current command is not a common command.
+                    header = call_header;
+                }
             }
 
             input = i;
         }
         &[][..]
+    }
+
+    async fn process<const N: usize, A: Adapter>(&mut self, adapter: &mut A) -> Result<(), A::Error> {
+        let mut cmd_buf = [0u8; N];
+        let mut res_buf: heapless::Vec<u8, N> = heapless::Vec::new();
+    
+        let mut proc_offset = 0;
+        let mut read_offset = 0;
+    
+        loop {
+            let count = adapter.read(&mut cmd_buf[read_offset..]).await?;
+            let read_end = read_offset + count;
+            
+            // Find the first terminator in the buffer starting from the last read position.
+            while let Some(position) = cmd_buf[read_offset..read_end]
+                .iter()
+                .position(|b| *b == b'\n')
+            {
+                let terminator_pos = read_offset + position;
+                let data = &cmd_buf[proc_offset..=terminator_pos];
+    
+                let remaining = self.run(data, &mut res_buf).await;
+
+                if !res_buf.is_empty() {
+                    adapter.write(&res_buf).await?;
+                    adapter.flush().await?;
+                    res_buf.clear();
+                }
+    
+                // Update the offset to the position up to where the data has been processed.
+                if !remaining.is_empty() {
+                    proc_offset = proc_offset + data.len() - remaining.len();
+                    read_offset = terminator_pos + 1;
+                }
+                else {
+                    proc_offset = terminator_pos + 1;
+                    read_offset = proc_offset;
+                }
+            }
+    
+            read_offset = read_end;
+ 
+            // Ensure `read_from` does not exceed the buffer length
+            if read_offset >= cmd_buf.len() {
+                #[cfg(feature = "defmt")]
+                defmt::warn!("SCPI buffer overflow, resetting buffer");
+                read_offset = 0;
+                proc_offset = 0;
+            }
+            // If there is unprocessed data, shift it to the beginning of the buffer.
+            else if proc_offset > 0 {
+                cmd_buf.copy_within(proc_offset..read_end, 0);
+                read_offset -= proc_offset;
+                proc_offset = 0;
+            }
+        }
     }
 }

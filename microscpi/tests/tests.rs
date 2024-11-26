@@ -8,6 +8,7 @@ pub enum TestResult {
     IdnOk,
     TestA,
     TestAQ,
+    Arbitrary(Vec<u8>),
 }
 
 pub struct TestInterface {
@@ -63,6 +64,12 @@ impl TestInterface {
     pub async fn math_multiply_float(&mut self, a: f64, b: f64) -> Result<f64, scpi::Error> {
         Ok(a * b)
     }
+
+    #[scpi(cmd = "ARGument:ARBitrary")]
+    pub async fn argument_arbitrary(&mut self, _value: &'_ [u8]) -> Result<(), scpi::Error> {
+        self.result = Some(TestResult::Arbitrary(_value.into()));
+        Ok(())
+    }
 }
 
 fn setup() -> (TestInterface, Vec<u8>) {
@@ -115,6 +122,32 @@ async fn test_value_string() {
     interface.run(b"VAL:STR?\n", &mut output).await;
 
     assert_eq!(output, b"\"Hello World\"\n");
+}
+
+#[tokio::test]
+async fn test_value_arbitrary() {
+    let (mut interface, mut output) = setup();
+
+    let input = [
+        65, 82, 71, 58, 65, 82, 66, 32, 35, 50, 51, 50, 57, 14, 100, 57, 14, 116, 57, 14, 132, 57,
+        14, 147, 57, 14, 163, 57, 14, 179, 57, 14, 195, 57, 14, 210, 57, 14, 227, 57, 14, 243, 57,
+        15, 10, 83, 89, 83, 84, 58, 69, 82, 82, 58, 78, 69, 88, 84, 63, 10,
+    ];
+
+    let remaining = interface.run(&input, &mut output).await;
+
+    assert_eq!(interface.errors.pop_error(), None);
+    assert_eq!(remaining, &[]);
+
+    assert_eq!(
+        interface.result,
+        Some(TestResult::Arbitrary(Vec::from(&[
+            57, 14, 100, 57, 14, 116, 57, 14, 132, 57, 14, 147, 57, 14, 163, 57, 14, 179, 57, 14,
+            195, 57, 14, 210, 57, 14, 227, 57, 14, 243, 57, 15
+        ])))
+    );
+
+    assert_eq!(output, b"0,\"\"\n");
 }
 
 #[tokio::test]
@@ -257,4 +290,20 @@ async fn test_multiple_commands() {
     interface.run(b"*RST\n*IDN?\n", &mut output).await;
     assert_eq!(interface.result, Some(TestResult::IdnOk));
     assert_eq!(output, b"\"MICROSCPI,TEST,1,1.0\"\n");
+}
+
+#[tokio::test]
+async fn test_empty_input() {
+    let (mut interface, mut output) = setup();
+    let remaining = interface.run(b"", &mut output).await;
+    assert_eq!(remaining, &[]);
+
+    let remaining = interface.run(b"\n", &mut output).await;
+    assert_eq!(remaining, &[]);
+
+    let remaining = interface.run(b" \n", &mut output).await;
+    assert_eq!(remaining, &[]);
+
+    let remaining = interface.run(b"  \n  \n\n  ", &mut output).await;
+    assert_eq!(remaining, &b"  "[..]);
 }

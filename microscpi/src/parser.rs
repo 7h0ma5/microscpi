@@ -249,14 +249,16 @@ fn arbitrary_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
     }
 
     let (i3, count) = (&i2[digits..], &i2[..digits]);
-    let count = str::from_utf8(count)?;
+    let count = str::from_utf8(count).or(Err(Error::CommandError))?;
     let count = usize::from_str_radix(count, 10)?;
 
     if i3.len() < count {
         Err(ParseError::Incomplete)
     }
     else {
-        Ok((&i3[count..], Value::Arbitrary(&i3[..count])))
+        let value = &i3[..count];
+        let remaining = &i3[count..];
+        Ok((remaining, Value::Arbitrary(value)))
     }
 }
 
@@ -379,9 +381,14 @@ fn arguments<'a, 'b>(
 /// Parses a SCPI command call.
 pub fn parse<'a>(
     root: &'static Node, header: &'static Node, input: &'a [u8],
-) -> ParseResult<'a, CommandCall<'a>> {
+) -> ParseResult<'a, Option<CommandCall<'a>>> {
     // Skip optional whitespace
     let (input, _) = optional(whitespace)(input)?;
+    let (input, _terminator) = optional(tag(b'\n'))(input)?;
+
+    if _terminator.is_some() {
+        return Ok((input, None));
+    }
 
     let (input, (node, header)) = command_program_header(root, header)(input)?;
 
@@ -396,11 +403,15 @@ pub fn parse<'a>(
     };
 
     let mut args = Vec::new();
-    let (input, _) = if has_args {
-        arguments(&mut args)(input).unwrap_or((input, ()))
+    let input = if has_args {
+        match arguments(&mut args)(input) {
+            Ok((i, _)) => i,
+            Err(ParseError::SoftError(_)) => input,
+            Err(e) => return Err(e),
+        }
     }
     else {
-        (input, ())
+        input
     };
 
     // Skip optional whitespace
@@ -410,13 +421,13 @@ pub fn parse<'a>(
         .map(|(i, _)| (i, true))
         .or_else(|_| tag(b';')(input).map(|(i, _)| (i, false)))?;
 
-    Ok((input, CommandCall {
+    Ok((input, Some(CommandCall {
         node,
         header,
         query,
         args,
         terminated,
-    }))
+    })))
 }
 
 #[cfg(test)]
@@ -673,25 +684,25 @@ mod tests {
     pub fn test_parse() {
         assert_eq!(
             parse(&ROOT_NODE, &ROOT_NODE, b"*IDN?\n"),
-            Ok((&b""[..], CommandCall {
+            Ok((&b""[..], Some(CommandCall {
                 node: &IDN_NODE,
                 header: None,
                 query: true,
                 args: Vec::new(),
                 terminated: true,
-            }))
+            })))
         );
 
         assert_eq!(
             parse(&ROOT_NODE, &ROOT_NODE, b"SYST:ERR 123, 456\n"),
-            Ok((&b""[..], CommandCall {
+            Ok((&b""[..], Some(CommandCall {
                 node: &ERR_NODE,
                 header: Some(&SYST_NODE),
                 query: false,
                 args: heapless::Vec::from_slice(&[Value::Decimal("123"), Value::Decimal("456")])
                     .unwrap(),
                 terminated: true,
-            }))
+            })))
         );
 
         assert_eq!(
@@ -758,25 +769,25 @@ mod tests {
     pub fn test_parse_with_whitespace() {
         assert_eq!(
             parse(&ROOT_NODE, &ROOT_NODE, b"  *IDN?  \n"),
-            Ok((&b""[..], CommandCall {
+            Ok((&b""[..], Some(CommandCall {
                 node: &IDN_NODE,
                 header: None,
                 query: true,
                 args: Vec::new(),
                 terminated: true,
-            }))
+            })))
         );
 
         assert_eq!(
             parse(&ROOT_NODE, &ROOT_NODE, b"  SYST:ERR  123,  456  \n"),
-            Ok((&b""[..], CommandCall {
+            Ok((&b""[..], Some(CommandCall {
                 node: &ERR_NODE,
                 header: Some(&SYST_NODE),
                 query: false,
                 args: heapless::Vec::from_slice(&[Value::Decimal("123"), Value::Decimal("456")])
                     .unwrap(),
                 terminated: true,
-            }))
+            })))
         );
     }
 
@@ -798,6 +809,24 @@ mod tests {
         assert_eq!(
             parse(&ROOT_NODE, &ROOT_NODE, b"SYST:ERR 123, 456abc\n"),
             Err(Error::InvalidCharacter.into())
+        );
+    }
+
+    #[test]
+    pub fn test_parse_empty() {
+        assert_eq!(
+            parse(&ROOT_NODE, &ROOT_NODE, b"\n"),
+            Ok((&[][..], None))
+        );
+
+        assert_eq!(
+            parse(&ROOT_NODE, &ROOT_NODE, b"\nabc"),
+            Ok((&b"abc"[..], None))
+        );
+
+        assert_eq!(
+            parse(&ROOT_NODE, &ROOT_NODE, b"  \n "),
+            Ok((&b" "[..], None))
         );
     }
 }

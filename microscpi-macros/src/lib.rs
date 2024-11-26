@@ -3,8 +3,9 @@ use std::rc::Rc;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{parse_macro_input, Attribute, Expr, Ident, ItemImpl, Lit, Path, Type};
+use syn::{parse_macro_input, Attribute, Expr, Ident, ImplItemFn, ItemImpl, Lit, Path, Type};
 
 mod command;
 mod tree;
@@ -82,18 +83,18 @@ impl CommandDefinition {
     }
 }
 
-/// Extracts the `scpi` attribute from a function and returns the command name
-/// if present.
-///
-/// # Arguments
-/// * `attr` - The attribute to parse.
-///
-/// # Errors
-/// Returns an error if the attribute contains an invalid SCPI command name.
-fn extract_name_attribute(attr: &Attribute) -> Result<Option<String>, syn::Error> {
-    let mut cmd: Option<String> = None;
+impl CommandDefinition {
+    /// Extracts the `scpi` attribute from a function and returns the command
+    /// name if present.
+    ///
+    /// # Arguments
+    /// * `attr` - The attribute to parse.
+    ///
+    /// # Errors
+    /// Returns an error if the attribute contains an invalid SCPI command name.
+    fn parse(func: &ImplItemFn, attr: &Attribute) -> syn::Result<CommandDefinition> {
+        let mut cmd: Option<String> = None;
 
-    if attr.path().is_ident("scpi") {
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("cmd") {
                 if let Lit::Str(name) = meta.value()?.parse()? {
@@ -108,10 +109,31 @@ fn extract_name_attribute(attr: &Attribute) -> Result<Option<String>, syn::Error
                 Ok(())
             }
         })?;
-        Ok(cmd)
-    }
-    else {
-        Ok(None)
+
+        let args = func
+            .sig
+            .inputs
+            .iter()
+            .filter_map(|arg| match arg {
+                syn::FnArg::Typed(arg_type) => Some(*arg_type.ty.clone()),
+                syn::FnArg::Receiver(_) => None,
+            })
+            .collect();
+
+        if let Some(cmd) = &cmd {
+            Ok(CommandDefinition {
+                id: 0,
+                command: Command::try_from(cmd.as_str()).map_err(|_| {
+                    syn::Error::new(attr.span(), "Invalid SCPI command syntax")
+                })?,
+                handler: CommandHandler::UserFunction(func.sig.ident.to_owned()),
+                args,
+                future: func.sig.asyncness.is_some(),
+            })
+        }
+        else {
+            Err(syn::Error::new(attr.span(), "Missing SCPI command path"))
+        }
     }
 }
 
@@ -123,49 +145,26 @@ fn extract_name_attribute(attr: &Attribute) -> Result<Option<String>, syn::Error
 ///
 /// # Returns
 /// A vector containing all command definitions.
-fn extract_commands(input: &mut ItemImpl) -> Vec<Rc<CommandDefinition>> {
+fn extract_commands(input: &mut ItemImpl) -> Result<Vec<Rc<CommandDefinition>>, syn::Error> {
     let mut commands = Vec::new();
     for item in input.items.iter_mut() {
         if let syn::ImplItem::Fn(ref mut item_fn) = item {
-            let mut name_attr_value = None;
-
-            // Retain only non-SCPI attributes.
-            item_fn.attrs.retain(|attr| {
-                if let Ok(Some(name_value)) = extract_name_attribute(attr) {
-                    name_attr_value = Some(name_value);
-                    false // Remove this attribute
-                }
-                else {
-                    true // Keep this attribute
-                }
-            });
-
-            if let Some(name_value) = name_attr_value {
-                let cmd = Command::try_from(name_value.as_ref()).unwrap();
-                let args = item_fn
-                    .sig
-                    .inputs
-                    .iter()
-                    .filter_map(|arg| match arg {
-                        syn::FnArg::Typed(arg_type) => Some(*arg_type.ty.clone()),
-                        syn::FnArg::Receiver(_) => None,
-                    })
-                    .collect();
-
-                let is_future = item_fn.sig.asyncness.is_some();
-
-                let cmd_def = Rc::new(CommandDefinition {
-                    id: commands.len(),
-                    command: cmd.clone(),
-                    handler: CommandHandler::UserFunction(item_fn.sig.ident.to_owned()),
-                    args,
-                    future: is_future,
-                });
-                commands.push(cmd_def.clone());
+            // Find the first SCPI attribute for this function, parse it and then remove
+            // it from the list attributes, so the compiler does not complain about an
+            // unknown attribute.
+            if let Some(idx) = item_fn
+                .attrs
+                .iter()
+                .position(|attr| attr.path().is_ident("scpi"))
+            {
+                let attr = item_fn.attrs.remove(idx);
+                let mut cmd = CommandDefinition::parse(item_fn, &attr)?;
+                cmd.id = commands.len();
+                commands.push(Rc::new(cmd).clone());
             }
         }
     }
-    commands
+    Ok(commands)
 }
 
 /// Macro attribute to define an SCPI interface.
@@ -190,7 +189,10 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let impl_ty = input_impl.self_ty.clone();
 
-    let mut commands = extract_commands(&mut input_impl);
+    let mut commands = match extract_commands(&mut input_impl) {
+        Ok(commands) => commands,
+        Err(err) => { return err.to_compile_error().into(); }
+    };
 
     if config.standard_commands {
         commands.push(Rc::new(CommandDefinition {

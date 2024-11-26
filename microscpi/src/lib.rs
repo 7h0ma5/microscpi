@@ -122,7 +122,7 @@ mod value;
 pub use commands::{ErrorCommands, StandardCommands};
 pub use error::Error;
 pub use error_queue::{ErrorQueue, StaticErrorQueue};
-pub use interface::{ErrorHandler, Interface};
+pub use interface::{ErrorHandler, Interface, Adapter};
 pub use microscpi_macros::interface;
 pub use response::{Arbitrary, Characters, Response, Write};
 #[doc(hidden)]
