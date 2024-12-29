@@ -123,9 +123,8 @@ impl CommandDefinition {
         if let Some(cmd) = &cmd {
             Ok(CommandDefinition {
                 id: 0,
-                command: Command::try_from(cmd.as_str()).map_err(|_| {
-                    syn::Error::new(attr.span(), "Invalid SCPI command syntax")
-                })?,
+                command: Command::try_from(cmd.as_str())
+                    .map_err(|_| syn::Error::new(attr.span(), "Invalid SCPI command syntax"))?,
                 handler: CommandHandler::UserFunction(func.sig.ident.to_owned()),
                 args,
                 future: func.sig.asyncness.is_some(),
@@ -191,7 +190,9 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let mut commands = match extract_commands(&mut input_impl) {
         Ok(commands) => commands,
-        Err(err) => { return err.to_compile_error().into(); }
+        Err(err) => {
+            return err.to_compile_error().into();
+        }
     };
 
     if config.standard_commands {

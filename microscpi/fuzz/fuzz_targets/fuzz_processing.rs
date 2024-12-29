@@ -1,10 +1,11 @@
 #![no_main]
 
-use std::{io::{Cursor, Read}, sync::OnceLock};
+use std::io::{Cursor, Read};
+use std::sync::OnceLock;
 
 use libfuzzer_sys::fuzz_target;
 use microscpi::{
-    self as scpi, Adapter, ErrorCommands, ErrorQueue, Interface, StandardCommands, StaticErrorQueue
+    self as scpi, Adapter, ErrorCommands, ErrorQueue, Interface, StandardCommands, StaticErrorQueue,
 };
 use tokio::runtime::Runtime;
 
@@ -25,7 +26,7 @@ impl<'a> Adapter for FuzzAdapter<'a> {
         match self.0.read(dst) {
             Ok(0) => Err(()),
             Ok(count) => Ok(count),
-            Err(_) => Err(())
+            Err(_) => Err(()),
         }
     }
 

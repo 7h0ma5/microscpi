@@ -64,17 +64,17 @@ pub trait Interface: ErrorHandler {
 
             #[cfg(feature = "defmt")]
             defmt::trace!("Run: {:?}", input);
- 
+
             if let Err(ParseError::Incomplete) = result {
                 #[cfg(feature = "defmt")]
                 defmt::trace!("Incomplete Input");
                 return input;
-            } 
+            }
             else if let Err(error) = result {
                 #[cfg(feature = "defmt")]
                 defmt::trace!("Parse error");
                 self.handle_error(error.into());
-                return input;
+                return &[];
             }
 
             let (i, call) = result.unwrap();
@@ -98,20 +98,22 @@ pub trait Interface: ErrorHandler {
 
             input = i;
         }
-        &[][..]
+        &[]
     }
 
-    async fn process<const N: usize, A: Adapter>(&mut self, adapter: &mut A) -> Result<(), A::Error> {
+    async fn process<const N: usize, A: Adapter>(
+        &mut self, adapter: &mut A,
+    ) -> Result<(), A::Error> {
         let mut cmd_buf = [0u8; N];
         let mut res_buf: heapless::Vec<u8, N> = heapless::Vec::new();
-    
+
         let mut proc_offset = 0;
         let mut read_offset = 0;
-    
+
         loop {
             let count = adapter.read(&mut cmd_buf[read_offset..]).await?;
             let read_end = read_offset + count;
-            
+
             // Find the first terminator in the buffer starting from the last read position.
             while let Some(position) = cmd_buf[read_offset..read_end]
                 .iter()
@@ -119,7 +121,7 @@ pub trait Interface: ErrorHandler {
             {
                 let terminator_pos = read_offset + position;
                 let data = &cmd_buf[proc_offset..=terminator_pos];
-    
+
                 let remaining = self.run(data, &mut res_buf).await;
 
                 if !res_buf.is_empty() {
@@ -127,7 +129,7 @@ pub trait Interface: ErrorHandler {
                     adapter.flush().await?;
                     res_buf.clear();
                 }
-    
+
                 // Update the offset to the position up to where the data has been processed.
                 if !remaining.is_empty() {
                     proc_offset = proc_offset + data.len() - remaining.len();
@@ -138,9 +140,9 @@ pub trait Interface: ErrorHandler {
                     read_offset = proc_offset;
                 }
             }
-    
+
             read_offset = read_end;
- 
+
             // Ensure `read_from` does not exceed the buffer length
             if read_offset >= cmd_buf.len() {
                 #[cfg(feature = "defmt")]

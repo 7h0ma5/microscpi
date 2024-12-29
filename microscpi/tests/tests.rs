@@ -154,9 +154,9 @@ async fn test_value_arbitrary() {
 async fn test_terminators() {
     let (mut interface, mut output) = setup();
 
-    assert_eq!(interface.run(b"*IDN?\n", &mut output).await, &[][..]);
-    assert_eq!(interface.run(b"*IDN?\r\n", &mut output).await, &[][..]);
-    assert_eq!(interface.run(b"*IDN?\n\r", &mut output).await, &[b'\r'][..]);
+    assert_eq!(interface.run(b"*IDN?\n", &mut output).await, &[]);
+    assert_eq!(interface.run(b"*IDN?\r\n", &mut output).await, &[]);
+    assert_eq!(interface.run(b"*IDN?\n\r", &mut output).await, &[]);
 }
 
 #[tokio::test]
@@ -305,5 +305,5 @@ async fn test_empty_input() {
     assert_eq!(remaining, &[]);
 
     let remaining = interface.run(b"  \n  \n\n  ", &mut output).await;
-    assert_eq!(remaining, &b"  "[..]);
+    assert_eq!(remaining, &[]);
 }

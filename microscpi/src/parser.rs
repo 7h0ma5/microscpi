@@ -421,13 +421,16 @@ pub fn parse<'a>(
         .map(|(i, _)| (i, true))
         .or_else(|_| tag(b';')(input).map(|(i, _)| (i, false)))?;
 
-    Ok((input, Some(CommandCall {
-        node,
-        header,
-        query,
-        args,
-        terminated,
-    })))
+    Ok((
+        input,
+        Some(CommandCall {
+            node,
+            header,
+            query,
+            args,
+            terminated,
+        }),
+    ))
 }
 
 #[cfg(test)]
@@ -684,25 +687,34 @@ mod tests {
     pub fn test_parse() {
         assert_eq!(
             parse(&ROOT_NODE, &ROOT_NODE, b"*IDN?\n"),
-            Ok((&b""[..], Some(CommandCall {
-                node: &IDN_NODE,
-                header: None,
-                query: true,
-                args: Vec::new(),
-                terminated: true,
-            })))
+            Ok((
+                &b""[..],
+                Some(CommandCall {
+                    node: &IDN_NODE,
+                    header: None,
+                    query: true,
+                    args: Vec::new(),
+                    terminated: true,
+                })
+            ))
         );
 
         assert_eq!(
             parse(&ROOT_NODE, &ROOT_NODE, b"SYST:ERR 123, 456\n"),
-            Ok((&b""[..], Some(CommandCall {
-                node: &ERR_NODE,
-                header: Some(&SYST_NODE),
-                query: false,
-                args: heapless::Vec::from_slice(&[Value::Decimal("123"), Value::Decimal("456")])
+            Ok((
+                &b""[..],
+                Some(CommandCall {
+                    node: &ERR_NODE,
+                    header: Some(&SYST_NODE),
+                    query: false,
+                    args: heapless::Vec::from_slice(&[
+                        Value::Decimal("123"),
+                        Value::Decimal("456")
+                    ])
                     .unwrap(),
-                terminated: true,
-            })))
+                    terminated: true,
+                })
+            ))
         );
 
         assert_eq!(
@@ -769,25 +781,34 @@ mod tests {
     pub fn test_parse_with_whitespace() {
         assert_eq!(
             parse(&ROOT_NODE, &ROOT_NODE, b"  *IDN?  \n"),
-            Ok((&b""[..], Some(CommandCall {
-                node: &IDN_NODE,
-                header: None,
-                query: true,
-                args: Vec::new(),
-                terminated: true,
-            })))
+            Ok((
+                &b""[..],
+                Some(CommandCall {
+                    node: &IDN_NODE,
+                    header: None,
+                    query: true,
+                    args: Vec::new(),
+                    terminated: true,
+                })
+            ))
         );
 
         assert_eq!(
             parse(&ROOT_NODE, &ROOT_NODE, b"  SYST:ERR  123,  456  \n"),
-            Ok((&b""[..], Some(CommandCall {
-                node: &ERR_NODE,
-                header: Some(&SYST_NODE),
-                query: false,
-                args: heapless::Vec::from_slice(&[Value::Decimal("123"), Value::Decimal("456")])
+            Ok((
+                &b""[..],
+                Some(CommandCall {
+                    node: &ERR_NODE,
+                    header: Some(&SYST_NODE),
+                    query: false,
+                    args: heapless::Vec::from_slice(&[
+                        Value::Decimal("123"),
+                        Value::Decimal("456")
+                    ])
                     .unwrap(),
-                terminated: true,
-            })))
+                    terminated: true,
+                })
+            ))
         );
     }
 
@@ -814,10 +835,7 @@ mod tests {
 
     #[test]
     pub fn test_parse_empty() {
-        assert_eq!(
-            parse(&ROOT_NODE, &ROOT_NODE, b"\n"),
-            Ok((&[][..], None))
-        );
+        assert_eq!(parse(&ROOT_NODE, &ROOT_NODE, b"\n"), Ok((&[][..], None)));
 
         assert_eq!(
             parse(&ROOT_NODE, &ROOT_NODE, b"\nabc"),
