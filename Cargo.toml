@@ -5,14 +5,14 @@ members = ["microscpi", "microscpi-macros", "microscpi/fuzz"]
 [workspace.package]
 authors = ["Thomas Gatzweiler <mail@thomasgatzweiler.com>"]
 license = "MIT"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2024"
 homepage = "https://github.com/7h0ma5/microscpi"
 repository = "https://github.com/7h0ma5/microscpi"
 
 [workspace.dependencies]
-microscpi = { path = "microscpi", version = "0.3.1" }
-microscpi-macros = { path = "microscpi-macros", version = "0.3.1" }
+microscpi = { path = "microscpi", version = "0.3.2" }
+microscpi-macros = { path = "microscpi-macros", version = "0.3.2" }
 
 [workspace.metadata.release]
 allow-branch = ["main"]
