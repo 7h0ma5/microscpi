@@ -147,7 +147,7 @@ impl CommandDefinition {
 fn extract_commands(input: &mut ItemImpl) -> Result<Vec<Rc<CommandDefinition>>, syn::Error> {
     let mut commands = Vec::new();
     for item in input.items.iter_mut() {
-        if let syn::ImplItem::Fn(ref mut item_fn) = item {
+        if let syn::ImplItem::Fn(item_fn) = item {
             // Find the first SCPI attribute for this function, parse it and then remove
             // it from the list attributes, so the compiler does not complain about an
             // unknown attribute.

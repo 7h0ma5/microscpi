@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/24.05";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
     flake-utils.url = "github:numtide/flake-utils";
     fenix = {
       url = "github:nix-community/fenix";
@@ -23,7 +23,7 @@
             pkgs.cargo-expand
             pkgs.cargo-release
             pkgs.cargo-fuzz
-            (pkgs.fenix.complete.withComponents [
+            (pkgs.fenix.stable.withComponents [
               "cargo"
               "clippy"
               "rust-src"
