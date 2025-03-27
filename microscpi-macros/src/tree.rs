@@ -48,7 +48,10 @@ impl Tree {
     }
 
     fn insert_at(
-        &mut self, id: NodeId, path: &[String], cmd: Rc<CommandDefinition>,
+        &mut self,
+        id: NodeId,
+        path: &[String],
+        cmd: Rc<CommandDefinition>,
     ) -> Result<(), Error> {
         use std::collections::hash_map::Entry;
 
@@ -76,21 +79,17 @@ impl Tree {
             }
 
             self.insert_at(node_id, &path[1..], cmd)?;
-        }
-        else {
+        } else {
             let node = self.items.get_mut(&id).unwrap();
             if cmd.command.is_query() {
                 if let Some(_existing) = &node.query {
                     return Err(Error::QueryExists);
-                }
-                else {
+                } else {
                     node.query = Some(cmd)
                 }
-            }
-            else if let Some(_existing) = &node.command {
+            } else if let Some(_existing) = &node.command {
                 return Err(Error::CommandExists);
-            }
-            else {
+            } else {
                 node.command = Some(cmd)
             }
         }

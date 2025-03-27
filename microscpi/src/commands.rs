@@ -23,8 +23,7 @@ pub trait ErrorCommands {
     fn system_error_next(&mut self) -> Result<(i16, &'static str), Error> {
         if let Some(error) = self.error_queue().pop_error() {
             Ok((error.number(), error.into()))
-        }
-        else {
+        } else {
             Ok((0, ""))
         }
     }

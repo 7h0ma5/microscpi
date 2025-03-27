@@ -4,7 +4,7 @@ use core::str::{self, Utf8Error};
 use heapless::Vec;
 
 use crate::tree::Node;
-use crate::{Error, Value, MAX_ARGS};
+use crate::{Error, MAX_ARGS, Value};
 
 /// Enum to handle both recoverable and fatal errors.
 #[derive(Debug, PartialEq)]
@@ -167,8 +167,7 @@ fn mantissa(input: &[u8]) -> ParseResult<&[u8]> {
     let (i3, _decimal) = optional(tag(b'.'))(i2)?;
     let (i4, _d2) = if d1.is_some() {
         optional(digits)(i3)?
-    }
-    else {
+    } else {
         digits(i3).map(|(i, o)| (i, Some(o)))?
     };
     Ok((i4, &input[..input.len() - i4.len()]))
@@ -254,8 +253,7 @@ fn arbitrary_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
 
     if i3.len() < count {
         Err(ParseError::Incomplete)
-    }
-    else {
+    } else {
         let value = &i3[..count];
         let remaining = &i3[count..];
         Ok((remaining, Value::Arbitrary(value)))
@@ -288,7 +286,8 @@ fn common_command_program_header(
 
 /// Parses a compound command program header (e.g., "SYST:ERR").
 fn compound_command_program_header(
-    root: &'static Node, header: &'static Node,
+    root: &'static Node,
+    header: &'static Node,
 ) -> impl Fn(&[u8]) -> ParseResult<(&'static Node, Option<&'static Node>)> {
     move |mut input: &[u8]| {
         let mut header = header;
@@ -324,7 +323,8 @@ fn compound_command_program_header(
 
 /// Parses the command program header (both common and compound).
 fn command_program_header(
-    root: &'static Node, header: &'static Node,
+    root: &'static Node,
+    header: &'static Node,
 ) -> impl Fn(&[u8]) -> ParseResult<(&'static Node, Option<&'static Node>)> {
     move |input: &[u8]| {
         compound_command_program_header(root, header)(input)
@@ -380,7 +380,9 @@ fn arguments<'a, 'b>(
 
 /// Parses a SCPI command call.
 pub fn parse<'a>(
-    root: &'static Node, header: &'static Node, input: &'a [u8],
+    root: &'static Node,
+    header: &'static Node,
+    input: &'a [u8],
 ) -> ParseResult<'a, Option<CommandCall<'a>>> {
     // Skip optional whitespace
     let (input, _) = optional(whitespace)(input)?;
@@ -409,8 +411,7 @@ pub fn parse<'a>(
             Err(ParseError::SoftError(_)) => input,
             Err(e) => return Err(e),
         }
-    }
-    else {
+    } else {
         input
     };
 
@@ -560,7 +561,7 @@ mod tests {
         );
 
         assert_eq!(
-            arbitrary_program_data(&[b'#', b'1', b'0']),
+            arbitrary_program_data(b"#10"),
             Ok((&b""[..], Value::Arbitrary(&[])))
         );
     }

@@ -34,8 +34,7 @@ impl TryFrom<&str> for Command {
 
             let (part, optional) = if part.starts_with('[') && part.ends_with(']') {
                 (&part[1..part.len() - 1], true)
-            }
-            else {
+            } else {
                 (part, false)
             };
 

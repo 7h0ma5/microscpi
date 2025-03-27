@@ -346,77 +346,77 @@ mod tests {
     #[tokio::test]
     async fn test_i8_response() {
         let mut buffer: Vec<u8> = Vec::new();
-        (-121 as i8).write_response(&mut buffer).unwrap();
+        (-121_i8).write_response(&mut buffer).unwrap();
         assert_eq!(buffer, b"-121");
     }
 
     #[tokio::test]
     async fn test_u8_response() {
         let mut buffer: Vec<u8> = Vec::new();
-        (83 as u8).write_response(&mut buffer).unwrap();
+        83_u8.write_response(&mut buffer).unwrap();
         assert_eq!(buffer, b"83");
     }
 
     #[tokio::test]
     async fn test_i16_response() {
         let mut buffer: Vec<u8> = Vec::new();
-        (-23502 as i16).write_response(&mut buffer).unwrap();
+        (-23502_i16).write_response(&mut buffer).unwrap();
         assert_eq!(buffer, b"-23502");
     }
 
     #[tokio::test]
     async fn test_u16_response() {
         let mut buffer: Vec<u8> = Vec::new();
-        (54968 as u16).write_response(&mut buffer).unwrap();
+        54968_u16.write_response(&mut buffer).unwrap();
         assert_eq!(buffer, b"54968");
     }
 
     #[tokio::test]
     async fn test_i32_response() {
         let mut buffer: Vec<u8> = Vec::new();
-        (-3895783 as i32).write_response(&mut buffer).unwrap();
+        (-3895783_i32).write_response(&mut buffer).unwrap();
         assert_eq!(buffer, b"-3895783");
     }
 
     #[tokio::test]
     async fn test_u32_response() {
         let mut buffer: Vec<u8> = Vec::new();
-        (9437838 as u32).write_response(&mut buffer).unwrap();
+        9437838_u32.write_response(&mut buffer).unwrap();
         assert_eq!(buffer, b"9437838");
     }
 
     #[tokio::test]
     async fn test_i64_response() {
         let mut buffer: Vec<u8> = Vec::new();
-        (-128945978592 as i64).write_response(&mut buffer).unwrap();
+        (-128945978592_i64).write_response(&mut buffer).unwrap();
         assert_eq!(buffer, b"-128945978592");
     }
 
     #[tokio::test]
     async fn test_u64_response() {
         let mut buffer: Vec<u8> = Vec::new();
-        (39048530499456 as u64).write_response(&mut buffer).unwrap();
+        39048530499456_u64.write_response(&mut buffer).unwrap();
         assert_eq!(buffer, b"39048530499456");
     }
 
     #[tokio::test]
     async fn test_isize_response() {
         let mut buffer: Vec<u8> = Vec::new();
-        (-3451512 as isize).write_response(&mut buffer).unwrap();
+        (-3451512_isize).write_response(&mut buffer).unwrap();
         assert_eq!(buffer, b"-3451512");
     }
 
     #[tokio::test]
     async fn test_usize_response() {
         let mut buffer: Vec<u8> = Vec::new();
-        (49684793 as usize).write_response(&mut buffer).unwrap();
+        49684793_usize.write_response(&mut buffer).unwrap();
         assert_eq!(buffer, b"49684793");
     }
 
     #[tokio::test]
     async fn test_f32_response() {
         let mut buffer: Vec<u8> = Vec::new();
-        (1.23 as f32).write_response(&mut buffer).unwrap();
+        1.23_f32.write_response(&mut buffer).unwrap();
         assert_eq!(buffer, b"1.23");
 
         let mut buffer: Vec<u8> = Vec::new();
@@ -435,7 +435,7 @@ mod tests {
     #[tokio::test]
     async fn test_f64_response() {
         let mut buffer: Vec<u8> = Vec::new();
-        (4.56 as f64).write_response(&mut buffer).unwrap();
+        4.56_f64.write_response(&mut buffer).unwrap();
         assert_eq!(buffer, b"4.56");
 
         let mut buffer: Vec<u8> = Vec::new();

@@ -22,12 +22,17 @@ pub trait Interface: ErrorHandler {
     /// arguments.
     #[doc(hidden)]
     async fn execute_command<'a>(
-        &'a mut self, command_id: CommandId, args: &[Value<'a>], response: &mut impl crate::Write,
+        &'a mut self,
+        command_id: CommandId,
+        args: &[Value<'a>],
+        response: &mut impl crate::Write,
     ) -> Result<(), Error>;
 
     #[doc(hidden)]
     async fn execute(
-        &mut self, call: &CommandCall<'_>, response: &mut impl crate::Write,
+        &mut self,
+        call: &CommandCall<'_>,
+        response: &mut impl crate::Write,
     ) -> Result<(), Error> {
         let command = if call.query {
             call.node.query
@@ -97,7 +102,8 @@ pub trait Interface: ErrorHandler {
     }
 
     async fn process<const N: usize, A: Adapter>(
-        &mut self, adapter: &mut A,
+        &mut self,
+        adapter: &mut A,
     ) -> Result<(), A::Error> {
         let mut cmd_buf = [0u8; N];
         let mut res_buf: heapless::Vec<u8, N> = heapless::Vec::new();

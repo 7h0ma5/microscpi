@@ -19,7 +19,7 @@ impl<'a> FuzzAdapter<'a> {
     }
 }
 
-impl<'a> Adapter for FuzzAdapter<'a> {
+impl Adapter for FuzzAdapter<'_> {
     type Error = ();
 
     async fn read(&mut self, dst: &mut [u8]) -> Result<usize, Self::Error> {
