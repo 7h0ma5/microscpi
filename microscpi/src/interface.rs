@@ -1,5 +1,5 @@
 use crate::parser::{self, CommandCall, ParseError};
-use crate::{tree, CommandId, Error, Value};
+use crate::{CommandId, Error, Value, tree};
 
 pub trait ErrorHandler {
     fn handle_error(&mut self, _error: Error);
@@ -31,8 +31,7 @@ pub trait Interface: ErrorHandler {
     ) -> Result<(), Error> {
         let command = if call.query {
             call.node.query
-        }
-        else {
+        } else {
             call.node.command
         };
 
@@ -40,11 +39,9 @@ pub trait Interface: ErrorHandler {
             self.execute_command(command, &call.args, response).await?;
 
             if call.query {
-                response.write_char('\n').await?;
-                response.flush().await?;
+                response.write_char('\n')?;
             }
-        }
-        else {
+        } else {
             return Err(Error::UndefinedHeader);
         }
 
@@ -69,8 +66,7 @@ pub trait Interface: ErrorHandler {
                 #[cfg(feature = "defmt")]
                 defmt::trace!("Incomplete Input");
                 return input;
-            }
-            else if let Err(error) = result {
+            } else if let Err(error) = result {
                 #[cfg(feature = "defmt")]
                 defmt::trace!("Parse error");
                 self.handle_error(error.into());
@@ -89,8 +85,7 @@ pub trait Interface: ErrorHandler {
                 if call.terminated {
                     // Reset the header to the root node if a call is ended with a terminator.
                     header = self.root_node();
-                }
-                else if let Some(call_header) = call.header {
+                } else if let Some(call_header) = call.header {
                     // Update the current header, if the current command is not a common command.
                     header = call_header;
                 }
@@ -134,8 +129,7 @@ pub trait Interface: ErrorHandler {
                 if !remaining.is_empty() {
                     proc_offset = proc_offset + data.len() - remaining.len();
                     read_offset = terminator_pos + 1;
-                }
-                else {
+                } else {
                     proc_offset = terminator_pos + 1;
                     read_offset = proc_offset;
                 }

@@ -5,7 +5,7 @@ use quote::{format_ident, quote};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{parse_macro_input, Attribute, Expr, Ident, ImplItemFn, ItemImpl, Lit, Path, Type};
+use syn::{Attribute, Expr, Ident, ImplItemFn, ItemImpl, Lit, Path, Type, parse_macro_input};
 
 mod command;
 mod tree;
@@ -63,8 +63,7 @@ impl CommandDefinition {
 
         let fn_call = if self.future {
             quote! { #fn_call.await? }
-        }
-        else {
+        } else {
             quote! { #fn_call? }
         };
 
@@ -75,8 +74,7 @@ impl CommandDefinition {
                 }
                 else {
                     let result = #fn_call;
-                    result.write_response(response).await.unwrap();
-                    Ok(())
+                    result.write_response(response)
                 }
             }
         }
@@ -100,12 +98,10 @@ impl CommandDefinition {
                 if let Lit::Str(name) = meta.value()?.parse()? {
                     cmd = Some(name.value());
                     Ok(())
-                }
-                else {
+                } else {
                     Err(meta.error("Invalid SCPI command name"))
                 }
-            }
-            else {
+            } else {
                 Ok(())
             }
         })?;
@@ -129,8 +125,7 @@ impl CommandDefinition {
                 args,
                 future: func.sig.asyncness.is_some(),
             })
-        }
-        else {
+        } else {
             Err(syn::Error::new(attr.span(), "Missing SCPI command path"))
         }
     }
@@ -180,8 +175,7 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
     for path in attrs {
         if path.is_ident("ErrorCommands") {
             config.error_commands = true;
-        }
-        else if path.is_ident("StandardCommands") {
+        } else if path.is_ident("StandardCommands") {
             config.standard_commands = true;
         }
     }
@@ -244,14 +238,12 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         let command = if let Some(command_id) = cmd_node.command.map(|cmd_def| cmd_def.id) {
             quote! { Some(#command_id) }
-        }
-        else {
+        } else {
             quote! { None }
         };
         let query = if let Some(command_id) = cmd_node.query.map(|cmd_def| cmd_def.id) {
             quote! { Some(#command_id) }
-        }
-        else {
+        } else {
             quote! { None }
         };
 
