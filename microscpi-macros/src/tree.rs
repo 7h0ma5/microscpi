@@ -5,17 +5,17 @@ use crate::CommandDefinition;
 
 #[derive(Debug)]
 pub enum Error {
-    CommandExists,
-    QueryExists,
+    CommandExists { path: String },
+    QueryExists { path: String },
 }
 
 impl std::error::Error for Error {}
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {
-            Error::CommandExists => write!(f, "Command already exists"),
-            Error::QueryExists => write!(f, "Query already exists"),
+        match self {
+            Error::CommandExists { path } => write!(f, "Command {} is already defined", path),
+            Error::QueryExists { path } => write!(f, "Query {} is already defined", path),
         }
     }
 }
@@ -81,14 +81,15 @@ impl Tree {
             self.insert_at(node_id, &path[1..], cmd)?;
         } else {
             let node = self.items.get_mut(&id).unwrap();
+            let path = path.join(":");
             if cmd.command.is_query() {
                 if let Some(_existing) = &node.query {
-                    return Err(Error::QueryExists);
+                    return Err(Error::QueryExists { path });
                 } else {
                     node.query = Some(cmd)
                 }
             } else if let Some(_existing) = &node.command {
-                return Err(Error::CommandExists);
+                return Err(Error::CommandExists { path });
             } else {
                 node.command = Some(cmd)
             }

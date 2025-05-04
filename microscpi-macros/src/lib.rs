@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use proc_macro::TokenStream;
+use proc_macro_error2::{abort, proc_macro_error};
 use quote::{format_ident, quote};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
@@ -16,6 +17,15 @@ use tree::Tree;
 enum CommandHandler {
     UserFunction(Ident),
     StandardFunction(&'static str),
+}
+
+impl CommandHandler {
+    fn span(&self) -> proc_macro2::Span {
+        match self {
+            CommandHandler::UserFunction(ident) => ident.span(),
+            CommandHandler::StandardFunction(_) => proc_macro2::Span::call_site(),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -99,7 +109,10 @@ impl CommandDefinition {
                     cmd = Some(name.value());
                     Ok(())
                 } else {
-                    Err(meta.error("Invalid SCPI command name"))
+                    abort!(
+                        meta.path.span(),
+                        "SCPI command name must be a string literal"
+                    )
                 }
             } else {
                 Ok(())
@@ -126,7 +139,10 @@ impl CommandDefinition {
                 future: func.sig.asyncness.is_some(),
             })
         } else {
-            Err(syn::Error::new(attr.span(), "Missing SCPI command path"))
+            abort!(
+                attr.span(),
+                "Missing `cmd` attribute in SCPI command. Expected: #[scpi(cmd = \"COMMAND:NAME\")]"
+            )
         }
     }
 }
@@ -165,6 +181,7 @@ fn extract_commands(input: &mut ItemImpl) -> Result<Vec<Rc<CommandDefinition>>, 
 ///
 /// This attribute will process an `impl` block and register the SCPI commands
 /// defined within it.
+#[proc_macro_error]
 #[proc_macro_attribute]
 pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attrs: Punctuated<Path, Comma> = parse_macro_input!(attr with Punctuated::parse_terminated);
@@ -218,10 +235,10 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     let mut tree = Tree::new();
-    commands
-        .iter()
-        .try_for_each(|cmd| tree.insert(cmd.clone()))
-        .unwrap();
+    commands.iter().try_for_each(|cmd| {
+        tree.insert(cmd.clone())
+            .map_err(|e| abort!(cmd.handler.span(), "Failed to register SCPI command: {}", e))
+    });
 
     let command_items: Vec<proc_macro2::TokenStream> =
         commands.iter().map(|cmd| cmd.call()).collect();
