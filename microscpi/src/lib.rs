@@ -114,16 +114,22 @@ mod error_queue;
 mod interface;
 #[doc(hidden)]
 pub mod parser;
+#[cfg(feature = "registers")]
+mod registers;
 mod response;
 #[doc(hidden)]
 pub mod tree;
 mod value;
 
+#[cfg(feature = "registers")]
+pub use commands::StatusCommands;
 pub use commands::{ErrorCommands, StandardCommands};
 pub use error::Error;
 pub use error_queue::{ErrorQueue, StaticErrorQueue};
 pub use interface::{Adapter, ErrorHandler, Interface};
 pub use microscpi_macros::interface;
+#[cfg(feature = "registers")]
+pub use registers::StatusRegisters;
 pub use response::{Arbitrary, Characters, Response, Write};
 #[doc(hidden)]
 pub use tree::Node;

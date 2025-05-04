@@ -15,6 +15,8 @@ pub trait ErrorQueue: Default {
     /// Get and remove the error in the front of the error queue. If the queue
     /// is empty, [None] is returned.
     fn pop_error(&mut self) -> Option<Error>;
+    /// Clear the error queue.
+    fn clear(&mut self);
 }
 
 /// An implementation of an [ErrorQueue] utilizing a statically allocated
@@ -48,7 +50,12 @@ impl<const N: usize> ErrorQueue for StaticErrorQueue<N> {
     fn error_count(&self) -> usize {
         self.0.len()
     }
+
+    fn clear(&mut self) {
+        self.0.clear();
+    }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -32,6 +32,7 @@ impl CommandHandler {
 struct Config {
     pub error_commands: bool,
     pub standard_commands: bool,
+    pub status_commands: bool,
 }
 
 struct CommandDefinition {
@@ -194,6 +195,8 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
             config.error_commands = true;
         } else if path.is_ident("StandardCommands") {
             config.standard_commands = true;
+        } else if path.is_ident("StatusCommands") {
+            config.status_commands = true;
         }
     }
 
@@ -234,11 +237,67 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
         }));
     }
 
+    if config.status_commands {
+        commands.push(Rc::new(CommandDefinition {
+            id: commands.len(),
+            args: Vec::new(),
+            command: Command::try_from("*OPC").unwrap(),
+            handler: CommandHandler::StandardFunction("StatusCommands::set_operation_complete"),
+            future: false,
+        }));
+
+        commands.push(Rc::new(CommandDefinition {
+            id: commands.len(),
+            args: Vec::new(),
+            command: Command::try_from("*OPC?").unwrap(),
+            handler: CommandHandler::StandardFunction("StatusCommands::operation_complete"),
+            future: false,
+        }));
+
+        commands.push(Rc::new(CommandDefinition {
+            id: commands.len(),
+            args: Vec::new(),
+            command: Command::try_from("*CLS").unwrap(),
+            handler: CommandHandler::StandardFunction("StatusCommands::clear_event_status"),
+            future: false,
+        }));
+
+        commands.push(Rc::new(CommandDefinition {
+            id: commands.len(),
+            args: Vec::new(),
+            command: Command::try_from("*ESE?").unwrap(),
+            handler: CommandHandler::StandardFunction("StatusCommands::event_status_enable"),
+            future: false,
+        }));
+
+        commands.push(Rc::new(CommandDefinition {
+            id: commands.len(),
+            args: vec![Type::Verbatim(quote! { u8 })],
+            command: Command::try_from("*ESE").unwrap(),
+            handler: CommandHandler::StandardFunction("StatusCommands::set_event_status_enable"),
+            future: false,
+        }));
+
+        commands.push(Rc::new(CommandDefinition {
+            id: commands.len(),
+            args: Vec::new(),
+            command: Command::try_from("*ESR?").unwrap(),
+            handler: CommandHandler::StandardFunction("StatusCommands::event_status_register"),
+            future: false,
+        }));
+    }
+
     let mut tree = Tree::new();
-    commands.iter().try_for_each(|cmd| {
-        tree.insert(cmd.clone())
-            .map_err(|e| abort!(cmd.handler.span(), "Failed to register SCPI command: {}", e))
-    });
+
+    for cmd in &commands[..] {
+        if let Err(error) = tree.insert(cmd.clone()) {
+            abort!(
+                cmd.handler.span(),
+                "Failed to register SCPI command: {}",
+                error
+            )
+        }
+    }
 
     let command_items: Vec<proc_macro2::TokenStream> =
         commands.iter().map(|cmd| cmd.call()).collect();

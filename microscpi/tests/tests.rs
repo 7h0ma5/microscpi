@@ -1,5 +1,6 @@
 use microscpi::{
     self as scpi, ErrorCommands, ErrorQueue, Interface, StandardCommands, StaticErrorQueue,
+    StatusCommands, StatusRegisters,
 };
 
 #[derive(Debug, PartialEq)]
@@ -14,6 +15,13 @@ pub enum TestResult {
 pub struct TestInterface {
     errors: StaticErrorQueue<10>,
     result: Option<TestResult>,
+    registers: StatusRegisters,
+}
+
+impl StatusCommands for TestInterface {
+    fn status_registers(&mut self) -> &mut StatusRegisters {
+        &mut self.registers
+    }
 }
 
 impl ErrorCommands for TestInterface {
@@ -24,7 +32,7 @@ impl ErrorCommands for TestInterface {
 
 impl StandardCommands for TestInterface {}
 
-#[scpi::interface(StandardCommands, ErrorCommands)]
+#[scpi::interface(StandardCommands, ErrorCommands, StatusCommands)]
 impl TestInterface {
     #[scpi(cmd = "*RST")]
     pub async fn rst(&mut self) -> Result<(), scpi::Error> {
@@ -75,6 +83,7 @@ impl TestInterface {
 fn setup() -> (TestInterface, Vec<u8>) {
     let interface = TestInterface {
         errors: StaticErrorQueue::new(),
+        registers: StatusRegisters::default(),
         result: None,
     };
     (interface, Vec::new())
@@ -306,4 +315,25 @@ async fn test_empty_input() {
 
     let remaining = interface.run(b"  \n  \n\n  ", &mut output).await;
     assert_eq!(remaining, &[]);
+}
+
+#[tokio::test]
+async fn test_event_status_register() {
+    let (mut interface, mut output) = setup();
+    interface.run(b"*ESR?\n", &mut output).await;
+    assert_eq!(output, b"128\n");
+
+    interface.run(b"*CLS\n", &mut output).await;
+    assert!(interface.registers.event_status.is_empty());
+
+    output.clear();
+    interface.run(b"*ESR?\n", &mut output).await;
+    assert_eq!(output, b"0\n");
+
+    interface.run(b"*CLS\n", &mut output).await;
+    assert!(interface.registers.event_status.is_empty());
+
+    output.clear();
+    interface.run(b"*OPC?\n", &mut output).await;
+    assert_eq!(output, b"1\n");
 }

@@ -2,14 +2,19 @@ use core::iter::Iterator;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CommandPart {
+    /// Whether this command part is optional.
     pub optional: bool,
+    /// The short form of the command part.
     pub short: String,
+    /// The long form of the command part.
     pub long: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct Command {
+    /// The parts of the command name.
     pub parts: Vec<CommandPart>,
+    /// Whether the command is a queries, i.e. ends with a question mark.
     query: bool,
 }
 
@@ -55,6 +60,15 @@ impl TryFrom<&str> for Command {
 impl Command {
     pub fn is_query(&self) -> bool {
         self.query
+    }
+
+    pub fn canonical_path(&self) -> String {
+        let path = self
+            .parts
+            .iter()
+            .fold(String::new(), |a, b| a + ":" + &b.long);
+
+        if self.query { path + "?" } else { path }
     }
 
     pub fn paths(&self) -> Vec<CommandPath> {

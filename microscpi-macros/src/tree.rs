@@ -81,15 +81,18 @@ impl Tree {
             self.insert_at(node_id, &path[1..], cmd)?;
         } else {
             let node = self.items.get_mut(&id).unwrap();
-            let path = path.join(":");
             if cmd.command.is_query() {
-                if let Some(_existing) = &node.query {
-                    return Err(Error::QueryExists { path });
+                if let Some(existing) = &node.query {
+                    return Err(Error::QueryExists {
+                        path: existing.command.canonical_path(),
+                    });
                 } else {
                     node.query = Some(cmd)
                 }
-            } else if let Some(_existing) = &node.command {
-                return Err(Error::CommandExists { path });
+            } else if let Some(existing) = &node.command {
+                return Err(Error::CommandExists {
+                    path: existing.command.canonical_path(),
+                });
             } else {
                 node.command = Some(cmd)
             }
