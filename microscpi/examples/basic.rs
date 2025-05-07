@@ -16,11 +16,6 @@ impl ExampleInterface {
     async fn system_value(&mut self) -> Result<u64, scpi::Error> {
         Ok(self.value)
     }
-
-    #[scpi(cmd = "SYSTem:VERSION?")]
-    async fn system_value_test(&mut self) -> Result<u64, scpi::Error> {
-        Ok(self.value)
-    }
 }
 
 impl StandardCommands for ExampleInterface {}
