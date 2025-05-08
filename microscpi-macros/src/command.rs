@@ -1,10 +1,10 @@
 use core::iter::Iterator;
 
 /// Represents a part of an SCPI command, such as "STATus" in "STATus:EVENt?".
-/// 
+///
 /// Each part has both a short form (uppercase letters only) and a long form (complete word).
 /// SCPI allows using either form in commands.
-/// 
+///
 /// For example, "STATus" can be written as either "STAT" (short form) or "STATUS" (long form).
 #[derive(Debug, Clone, PartialEq)]
 pub struct CommandPart {
@@ -17,10 +17,10 @@ pub struct CommandPart {
 }
 
 /// Represents a complete SCPI command with all its parts.
-/// 
+///
 /// An SCPI command consists of multiple parts separated by colons, for example:
 /// "SYSTem:ERRor:NEXT?" is a command with three parts and is a query (ends with '?').
-/// 
+///
 /// The command can also have optional parts, indicated by square brackets, like:
 /// "[STATus]:EVENt?" where "STATus" is optional.
 #[derive(Debug, Clone)]
@@ -39,20 +39,13 @@ impl TryFrom<&str> for Command {
     type Error = Box<dyn std::error::Error>;
 
     /// Parses a command string into a Command structure.
-    /// 
+    ///
     /// # Arguments
     /// * `value` - The SCPI command string (e.g., "SYSTem:ERRor?" or "[STATus]:EVENt?")
-    /// 
+    ///
     /// # Returns
     /// * `Ok(Command)` - Successfully parsed command
     /// * `Err` - If the command string is invalid
-    /// 
-    /// # Examples
-    /// ```
-    /// use microscpi_macros::command::Command;
-    /// let cmd = Command::try_from("SYSTem:ERRor?").unwrap();
-    /// assert!(cmd.is_query());
-    /// ```
     fn try_from(mut value: &str) -> Result<Self, Self::Error> {
         let mut parts = Vec::new();
         let mut query = false;
@@ -99,31 +92,28 @@ impl Command {
     }
 
     /// Returns the canonical (long-form) representation of this command.
-    /// 
+    ///
     /// This is the complete command with all parts in their long form,
     /// separated by colons, and with a question mark at the end if it's a query.
     pub fn canonical_path(&self) -> String {
         // Build the path using all long forms
-        let path = self
-            .parts
-            .iter()
-            .fold(String::new(), |a, b| {
-                if a.is_empty() {
-                    b.long.clone()
-                } else {
-                    a + ":" + &b.long
-                }
-            });
+        let path = self.parts.iter().fold(String::new(), |a, b| {
+            if a.is_empty() {
+                b.long.clone()
+            } else {
+                a + ":" + &b.long
+            }
+        });
 
         if self.query { path + "?" } else { path }
     }
 
     /// Generates all valid paths for this command.
-    /// 
+    ///
     /// Since SCPI commands can have optional parts and each part can be
     /// specified in either short or long form, this method generates
     /// all possible valid combinations.
-    /// 
+    ///
     /// # Returns
     /// A vector of all valid command paths
     pub fn paths(&self) -> Vec<CommandPath> {
@@ -166,7 +156,7 @@ mod tests {
     fn test_all_paths() {
         let cmd = Command::try_from("[STATus]:TIMe?").unwrap();
         let paths: Vec<CommandPath> = cmd.paths();
-        
+
         // Ensure we generate all valid path combinations:
         // 1. With STATUS (long) + TIME (long)
         assert!(paths.iter().any(|p| p.as_ref() == vec!["STATUS", "TIME"]));

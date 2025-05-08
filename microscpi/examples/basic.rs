@@ -1,31 +1,27 @@
-use microscpi::{self as scpi, ErrorHandler, Interface, StandardCommands};
+use microscpi::Interface;
 
-pub struct ExampleInterface {
-    value: u64,
-}
+pub struct BasicInterface {}
 
-impl ErrorHandler for ExampleInterface {
-    fn handle_error(&mut self, error: scpi::Error) {
+impl microscpi::ErrorHandler for BasicInterface {
+    fn handle_error(&mut self, error: microscpi::Error) {
         println!("Error: {error}");
     }
 }
 
-#[microscpi::interface(StandardCommands)]
-impl ExampleInterface {
-    #[scpi(cmd = "SYSTem:VALue?")]
-    async fn system_value(&mut self) -> Result<u64, scpi::Error> {
-        Ok(self.value)
+#[microscpi::interface]
+impl BasicInterface {
+    #[scpi(cmd = "MATH:MULTiply?")]
+    async fn system_value(&mut self, a: f64, b: f64) -> Result<f64, microscpi::Error> {
+        Ok(a * b)
     }
 }
-
-impl StandardCommands for ExampleInterface {}
 
 #[tokio::main]
 pub async fn main() {
     let mut output = Vec::new();
-    let mut interface = ExampleInterface { value: 42 };
+    let mut interface = BasicInterface {};
 
-    interface.run(b"SYSTEM:VAL?\n", &mut output).await;
+    interface.run(b"MATH:MULT? 23, 42\n", &mut output).await;
 
-    assert_eq!(output, b"42\n");
+    assert_eq!(output, b"966\n");
 }

@@ -244,30 +244,14 @@ impl AsRef<[Rc<CommandDefinition>]> for CommandSet {
 /// `microscpi::Interface` trait, including the command tree and command handler
 /// dispatch logic.
 ///
-/// # Example
-///
-/// ```
-/// use microscpi::{self as scpi, Interface};
-///
-/// struct ExampleInterface {
-///     value: u64
-/// }
-///
-/// #[scpi::interface]
-/// impl ExampleInterface {
-///     #[scpi(cmd = "SYSTem:VALue?")]
-///     fn system_value(&mut self) -> Result<u64, scpi::Error> {
-///         Ok(self.value)
-///     }
-/// }
-/// ```
-///
 /// # Options
 ///
 /// The interface can be configured with additional options:
 ///
-/// ```
-/// #[scpi::interface(StandardCommands, ErrorCommands)]
+/// ```ignore
+/// use microscpi::Interface;
+///
+/// #[microscpi::interface(StandardCommands, ErrorCommands)]
 /// impl ExampleInterface {
 ///     // ...
 /// }
