@@ -22,6 +22,7 @@ harness = false
 [features]
 default = ["registers"]
 std = []
+doc = ["microscpi-macros/doc"]
 defmt = ["dep:defmt"]
 registers = ["dep:bitflags"]
 
