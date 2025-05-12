@@ -1,5 +1,8 @@
 use core::iter::Iterator;
 
+#[cfg(feature = "doc")]
+use serde::Serialize;
+
 /// Represents a part of an SCPI command, such as "STATus" in "STATus:EVENt?".
 ///
 /// Each part has both a short form (uppercase letters only) and a long form (complete word).
@@ -7,6 +10,7 @@ use core::iter::Iterator;
 ///
 /// For example, "STATus" can be written as either "STAT" (short form) or "STATUS" (long form).
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "doc", derive(Serialize))]
 pub struct CommandPart {
     /// Whether this command part is optional.
     pub optional: bool,

@@ -8,6 +8,9 @@ license.workspace = true
 homepage.workspace = true
 repository.workspace = true
 
+[features]
+doc = ["dep:serde", "dep:serde_json", "dep:serde_yaml", "dep:regex"]
+
 [lib]
 name = "microscpi_macros"
 proc-macro = true
@@ -18,3 +21,10 @@ syn = { version = "2.0.77", features = ["full"] }
 quote = "1.0.37"
 proc-macro2 = "1"
 proc-macro-error2 = "2.0.1"
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json = { version = "1.0", optional = true }
+serde_yaml = { version = "0.9", optional = true }
+regex = { version = "1.10", optional = true }
+
+[dev-dependencies]
+microscpi.workspace = true
