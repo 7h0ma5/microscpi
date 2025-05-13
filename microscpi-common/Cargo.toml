@@ -1,0 +1,19 @@
+[package]
+name = "microscpi-common"
+description = "Shared data types for the microscpi crates."
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[lib]
+name = "microscpi_common"
+test = false
+
+[features]
+serde = ["dep:serde"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"], optional = true }

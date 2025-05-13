@@ -1,46 +1,22 @@
-use std::env;
-use std::fs;
-use std::path::PathBuf;
 use std::rc::Rc;
 
 use proc_macro::TokenStream;
-use proc_macro_error2::{abort, emit_warning, proc_macro_error};
+use proc_macro_error2::{abort, proc_macro_error};
 use quote::{format_ident, quote};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
 use syn::{Attribute, Expr, Ident, ImplItemFn, ItemImpl, Lit, Path, Type, parse_macro_input};
-use syn::{ExprAssign, ExprLit, ExprPath};
 
-mod command;
-#[cfg(feature = "doc")]
-mod doc;
 mod tree;
 
-use command::Command;
-#[cfg(feature = "doc")]
-use doc::{CommandDocumentation, Documentation};
+use microscpi_common::Command;
 use tree::Tree;
 
 /// This crate provides procedural macros for the microscpi library.
 ///
 /// The main macro is `interface`, which processes an implementation block
 /// to generate the code needed for an SCPI command interpreter.
-///
-/// # Command Documentation Export
-///
-/// This crate also provides functionality to export command documentation during the build phase.
-/// To enable this, add the `export` attribute to the `interface` macro:
-///
-/// ```ignore
-/// #[microscpi::interface(StandardCommands, export = "commands.json")]
-/// ```
-///
-/// The exported documentation includes:
-/// - Command name in canonical form
-/// - Whether the command is a query
-/// - Function documentation, including any YAML structured data
-/// - Argument types
 
 /// Represents a handler for an SCPI command.
 ///
@@ -74,8 +50,6 @@ struct Config {
     pub standard_commands: bool,
     /// Whether to include status commands
     pub status_commands: bool,
-    /// Export documentation to this file path (optional)
-    pub export_path: Option<String>,
 }
 
 /// Defines a complete SCPI command with its handler function and arguments.
@@ -91,8 +65,6 @@ struct CommandDefinition {
     pub args: Vec<Type>,
     /// Whether the handler is an async function
     pub future: bool,
-    /// Documentation for this command
-    pub doc: Option<String>,
 }
 
 impl CommandDefinition {
@@ -190,9 +162,6 @@ impl CommandDefinition {
             })
             .collect();
 
-        // Extract documentation comments from the function
-        let doc = extract_doc_comments(&func.attrs);
-
         if let Some(cmd) = cmd {
             Ok(CommandDefinition {
                 id: None,
@@ -201,7 +170,6 @@ impl CommandDefinition {
                 handler: CommandHandler::UserFunction(func.sig.ident.to_owned()),
                 args,
                 future: func.sig.asyncness.is_some(),
-                doc,
             })
         } else {
             abort!(
@@ -226,24 +194,6 @@ impl CommandSet {
     pub fn push(&mut self, mut command: CommandDefinition) {
         command.id = Some(self.commands.len());
         self.commands.push(Rc::new(command));
-    }
-
-    /// Exports all commands in this set to a documentation file.
-    ///
-    /// # Arguments
-    /// * `format` - The format to export in (JSON or YAML)
-    /// * `output_path` - The file path to write the documentation to
-    #[cfg(feature = "doc")]
-    pub fn export_documentation(&self, output_path: &str) -> std::io::Result<()> {
-        let mut docs = Documentation::new();
-
-        for cmd in self.commands.iter() {
-            // Convert argument types to strings
-            docs.add_command(CommandDocumentation::from(&**cmd));
-        }
-
-        // Write the documentation to the specified file
-        docs.write_to_file(output_path)
     }
 
     /// Extracts all SCPI command functions from an `impl` block.
@@ -312,77 +262,25 @@ impl AsRef<[Rc<CommandDefinition>]> for CommandSet {
 /// - `StandardCommands`: Add standard SCPI commands (e.g., `SYSTem:VERSion?`)
 /// - `ErrorCommands`: Add error-related commands (e.g., `SYSTem:ERRor:[NEXT]?`)
 /// - `StatusCommands`: Add status-related commands (e.g., `*OPC`, `*CLS`)
-/// - `export = "path/to/file"`: Export command documentation to the specified JSON file
 ///
-/// # Documentation
-///
-/// Documentation for commands is extracted from the doc comments on the handler functions.
-/// You can include structured data in YAML format within your documentation:
-///
-/// ```ignore
-/// /// Returns the device identifier.
-/// ///
-/// /// ```yaml
-/// /// unit: string
-/// /// example: "ACME,Widget3000,1234,v1.02"
-/// /// ```
-/// #[scpi(cmd = "*IDN?")]
-/// fn identify(&mut self) -> Result<String, Error> {
-///     // ...
-/// }
-/// ```
-///
-/// This documentation and structured data will be included in exported command documentation.
 #[proc_macro_error]
 #[proc_macro_attribute]
 pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let attrs: Punctuated<Expr, Comma> = parse_macro_input!(attr with Punctuated::parse_terminated);
+    let attrs: Punctuated<Path, Comma> = parse_macro_input!(attr with Punctuated::parse_terminated);
     let mut input_impl = parse_macro_input!(item as ItemImpl);
 
     let mut config = Config::default();
 
     // Process configuration options from the attribute parameters
     for attr in attrs {
-        match &attr {
-            Expr::Path(ExprPath { path, .. }) => {
-                if path.is_ident("ErrorCommands") {
-                    config.error_commands = true;
-                } else if path.is_ident("StandardCommands") {
-                    config.standard_commands = true;
-                } else if path.is_ident("StatusCommands") {
-                    config.status_commands = true;
-                } else {
-                    abort!(attr.span(), "Unknown SCPI interface option.");
-                }
-            }
-            Expr::Assign(ExprAssign { left, right, .. }) => match &**left {
-                Expr::Path(ExprPath { path, .. }) => {
-                    if let Ok("export") = path.require_ident().map(Ident::to_string).as_deref() {
-                        if cfg!(not(feature = "doc")) {
-                            abort!(
-                                attr.span(),
-                                "Documentation export not available, microscpi-macros compiled without 'doc' feature."
-                            )
-                        } else if let Expr::Lit(ExprLit {
-                            lit: Lit::Str(value),
-                            ..
-                        }) = &**right
-                        {
-                            config.export_path = Some(value.value());
-                        } else {
-                            abort!(right.span(), "Export path must be a string.");
-                        }
-                    } else {
-                        abort!(left.span(), "Unknown SCPI interface option.");
-                    }
-                }
-                _ => {
-                    abort!(attr.span(), "Unknown SCPI interface option.");
-                }
-            },
-            _ => {
-                abort!(attr.span(), "Unknown SCPI interface option.");
-            }
+        if attr.is_ident("ErrorCommands") {
+            config.error_commands = true;
+        } else if attr.is_ident("StandardCommands") {
+            config.standard_commands = true;
+        } else if attr.is_ident("StatusCommands") {
+            config.status_commands = true;
+        } else {
+            abort!(attr.span(), "Unknown SCPI interface option.");
         }
     }
 
@@ -395,7 +293,6 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
             command: Command::try_from("SYSTem:VERSion?").unwrap(),
             handler: CommandHandler::StandardFunction("StandardCommands::system_version"),
             future: false,
-            doc: Some("Returns the SCPI version supported by the instrument.".to_string()),
         });
     }
 
@@ -406,7 +303,6 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
             command: Command::try_from("SYSTem:ERRor:[NEXT]?").unwrap(),
             handler: CommandHandler::StandardFunction("ErrorCommands::system_error_next"),
             future: false,
-            doc: Some("Returns the next error from the error queue.".to_string()),
         });
 
         command_set.push(CommandDefinition {
@@ -415,7 +311,6 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
             command: Command::try_from("SYSTem:ERRor:COUNt?").unwrap(),
             handler: CommandHandler::StandardFunction("ErrorCommands::system_error_count"),
             future: false,
-            doc: Some("Returns the number of errors in the error queue.".to_string()),
         });
     }
 
@@ -426,10 +321,6 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
             command: Command::try_from("*OPC").unwrap(),
             handler: CommandHandler::StandardFunction("StatusCommands::set_operation_complete"),
             future: false,
-            doc: Some(
-                "Sets the Operation Complete bit in the Standard Event Status Register."
-                    .to_string(),
-            ),
         });
 
         command_set.push(CommandDefinition {
@@ -438,7 +329,6 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
             command: Command::try_from("*OPC?").unwrap(),
             handler: CommandHandler::StandardFunction("StatusCommands::operation_complete"),
             future: false,
-            doc: Some("Returns 1 when all pending operations are complete.".to_string()),
         });
 
         command_set.push(CommandDefinition {
@@ -447,7 +337,6 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
             command: Command::try_from("*CLS").unwrap(),
             handler: CommandHandler::StandardFunction("StatusCommands::clear_event_status"),
             future: false,
-            doc: Some("Clears all event registers and error queue.".to_string()),
         });
 
         command_set.push(CommandDefinition {
@@ -456,7 +345,6 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
             command: Command::try_from("*ESE?").unwrap(),
             handler: CommandHandler::StandardFunction("StatusCommands::event_status_enable"),
             future: false,
-            doc: Some("Returns the Standard Event Status Enable Register value.".to_string()),
         });
 
         command_set.push(CommandDefinition {
@@ -465,7 +353,6 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
             command: Command::try_from("*ESE").unwrap(),
             handler: CommandHandler::StandardFunction("StatusCommands::set_event_status_enable"),
             future: false,
-            doc: Some("Sets the Standard Event Status Enable Register.".to_string()),
         });
 
         command_set.push(CommandDefinition {
@@ -474,42 +361,12 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
             command: Command::try_from("*ESR?").unwrap(),
             handler: CommandHandler::StandardFunction("StatusCommands::event_status_register"),
             future: false,
-            doc: Some("Returns the Standard Event Status Register value.".to_string()),
         });
     }
 
     // Extract user-defined SCPI commands from the implementation block
     if let Err(error) = command_set.extract_commands(&mut input_impl) {
         return error.into_compile_error().into();
-    }
-
-    // Export command documentation if requested
-    #[cfg(feature = "doc")]
-    if let Some(export_path) = &config.export_path {
-        let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap_or_else(|_| ".".to_string()));
-
-        // Determine full path (if relative, use OUT_DIR as base)
-        let file_path = if PathBuf::from(export_path).is_relative() {
-            out_dir.join(export_path)
-        } else {
-            PathBuf::from(export_path)
-        };
-
-        let file_name = file_path.to_string_lossy().to_string();
-
-        // Create directory if it doesn't exist
-        if let Some(parent) = file_path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
-
-        // Export the documentation
-        if let Err(e) = command_set.export_documentation(&file_name) {
-            emit_warning!(
-                proc_macro2::Span::call_site(),
-                "Failed to export SCPI command documentation: {}",
-                e
-            );
-        }
     }
 
     let mut tree = Tree::new();
@@ -594,28 +451,4 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
         #interface_impl
     }
     .into()
-}
-
-/// Helper function to extract doc comments from attributes.
-fn extract_doc_comments(attrs: &[syn::Attribute]) -> Option<String> {
-    let doc_comments: Vec<String> = attrs
-        .iter()
-        .filter(|attr| attr.path().is_ident("doc"))
-        .filter_map(|attr| {
-            if let Ok(syn::Meta::NameValue(meta)) = attr.meta.clone().try_into() {
-                if let syn::Expr::Lit(expr_lit) = meta.value {
-                    if let syn::Lit::Str(lit_str) = expr_lit.lit {
-                        return Some(lit_str.value());
-                    }
-                }
-            }
-            None
-        })
-        .collect();
-
-    if doc_comments.is_empty() {
-        None
-    } else {
-        Some(doc_comments.join("\n"))
-    }
 }

@@ -1,6 +1,13 @@
 [workspace]
 resolver = "3"
-members = ["microscpi", "microscpi-macros", "microscpi/fuzz"]
+members = [
+    "microscpi",
+    "microscpi-common",
+    "microscpi-macros",
+    "microscpi-doc",
+    "microscpi/fuzz",
+    "examples/doc",
+]
 
 [workspace.package]
 authors = ["Thomas Gatzweiler <mail@thomasgatzweiler.com>"]
@@ -13,6 +20,8 @@ repository = "https://github.com/7h0ma5/microscpi"
 [workspace.dependencies]
 microscpi = { path = "microscpi", version = "0.4.0" }
 microscpi-macros = { path = "microscpi-macros", version = "0.4.0" }
+microscpi-common = { path = "microscpi-common", version = "0.4.0" }
+microscpi-doc = { path = "microscpi-doc", version = "0.4.0" }
 
 [workspace.metadata.release]
 allow-branch = ["main"]

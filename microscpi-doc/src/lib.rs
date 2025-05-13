@@ -1,7 +1,8 @@
-use quote::quote;
-use serde::Serialize;
+use std::{error::Error, path::Path};
 
-use crate::{CommandDefinition, command::CommandPart};
+use microscpi_common::{Command, CommandPart};
+use serde::Serialize;
+use syn::{ImplItemFn, Lit, visit::Visit};
 
 /// Represents a serializable SCPI command for documentation export.
 #[derive(Debug, Serialize)]
@@ -12,8 +13,6 @@ pub struct CommandDocumentation {
     pub parts: Vec<CommandPart>,
     /// Whether the command is a query (ends with ?).
     pub is_query: bool,
-    /// The types of arguments the command takes.
-    pub args: Vec<String>,
     /// The plain text documentation.
     pub description: Option<String>,
     /// Structured data extracted from YAML blocks in the documentation.
@@ -57,26 +56,6 @@ pub fn parse_doc(doc_str: &str) -> (Option<String>, Option<serde_yaml::Value>) {
     )
 }
 
-impl From<&CommandDefinition> for CommandDocumentation {
-    fn from(cmd: &CommandDefinition) -> Self {
-        let args: Vec<String> = cmd.args.iter().map(|ty| quote!(#ty).to_string()).collect();
-        let (description, attributes) = cmd
-            .doc
-            .as_ref()
-            .map(String::as_str)
-            .map_or((None, None), parse_doc);
-
-        Self {
-            command: cmd.command.canonical_path(),
-            parts: cmd.command.parts.clone(),
-            is_query: cmd.command.is_query(),
-            args,
-            attributes,
-            description,
-        }
-    }
-}
-
 /// A collection of command documents to be serialized.
 #[derive(Debug, Serialize)]
 pub struct Documentation {
@@ -92,6 +71,13 @@ impl Documentation {
         }
     }
 
+    pub fn parse_file(&mut self, path: impl AsRef<Path>) -> Result<(), Box<dyn Error>> {
+        let content = std::fs::read_to_string(path)?;
+        let file = syn::parse_file(content.as_str())?;
+        self.visit_file(&file);
+        Ok(())
+    }
+
     /// Adds a command to the documentation.
     pub fn add_command(&mut self, command: CommandDocumentation) {
         self.commands.push(command);
@@ -103,11 +89,73 @@ impl Documentation {
     }
 
     /// Writes the command documentation to a file in the specified format.
-    pub fn write_to_file(&self, path: &str) -> std::io::Result<()> {
+    pub fn write_to_file(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
         let content = self
             .to_json()
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
 
         std::fs::write(path, content)
+    }
+}
+
+impl<'ast> Visit<'ast> for Documentation {
+    fn visit_impl_item_fn(&mut self, item_fn: &'ast ImplItemFn) {
+        for attr in &item_fn.attrs {
+            if attr.path().is_ident("scpi") {
+                let mut cmd_name: Option<String> = None;
+
+                let Ok(()) = attr.parse_nested_meta(|meta| {
+                    if meta.path.is_ident("cmd") {
+                        if let Lit::Str(name) = meta.value()?.parse()? {
+                            cmd_name = Some(name.value());
+                            Ok(())
+                        } else {
+                            Ok(())
+                        }
+                    } else {
+                        Ok(())
+                    }
+                }) else {
+                    continue;
+                };
+
+                let doc: String = item_fn
+                    .attrs
+                    .iter()
+                    .filter(|attr| attr.path().is_ident("doc"))
+                    .filter_map(|attr| {
+                        if let Ok(syn::Meta::NameValue(meta)) = attr.meta.clone().try_into() {
+                            if let syn::Expr::Lit(expr_lit) = meta.value {
+                                if let syn::Lit::Str(lit_str) = expr_lit.lit {
+                                    return Some(lit_str.value());
+                                }
+                            }
+                        }
+                        None
+                    })
+                    .collect::<Vec<String>>()
+                    .join("\n");
+
+                let Some(cmd_name) = cmd_name else {
+                    continue;
+                };
+
+                let Ok(cmd) = Command::try_from(cmd_name.as_str()) else {
+                    continue;
+                };
+
+                let (description, attributes) = parse_doc(doc.as_str());
+
+                let doc = CommandDocumentation {
+                    command: cmd_name,
+                    is_query: cmd.is_query(),
+                    parts: cmd.parts,
+                    description,
+                    attributes,
+                };
+
+                self.add_command(doc);
+            }
+        }
     }
 }

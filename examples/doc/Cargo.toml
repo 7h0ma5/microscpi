@@ -1,0 +1,13 @@
+[package]
+name = "doc-example"
+edition = "2024"
+publish = false
+
+[lib]
+name = "doc_example"
+
+[dependencies]
+microscpi.workspace = true
+
+[build-dependencies]
+microscpi-doc.workspace = true

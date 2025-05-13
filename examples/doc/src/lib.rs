@@ -1,15 +1,6 @@
-// This is a test module to verify that the SCPI command documentation export works.
-// It uses the export attribute to generate documentation during build time.
-// Note: The export attribute syntax is export = "filename.json"
+use microscpi::{self, ErrorHandler};
 
-use microscpi;
-
-use microscpi::ErrorHandler;
-// Import the macros
-use microscpi_macros::interface;
-
-// Define a simple interface for testing
-struct TestInterface {}
+pub struct TestInterface {}
 
 impl ErrorHandler for TestInterface {
     fn handle_error(&mut self, _error: microscpi::Error) {
@@ -17,7 +8,7 @@ impl ErrorHandler for TestInterface {
     }
 }
 
-#[interface(export = "target/scpi_commands.json")]
+#[microscpi::interface]
 impl TestInterface {
     /// Returns the device identifier.
     ///
@@ -26,8 +17,8 @@ impl TestInterface {
     /// example: "ACME,Widget3000,1234,v1.02"
     /// ```
     #[scpi(cmd = "*IDN?")]
-    fn identify(&mut self) -> Result<String, microscpi::Error> {
-        Ok("TEST,DEVICE,1234,1.0".to_string())
+    fn identify(&mut self) -> Result<&str, microscpi::Error> {
+        Ok("TEST,DEVICE,1234,1.0")
     }
 
     /// Sets a measurement parameter.
@@ -55,13 +46,4 @@ impl TestInterface {
     fn get_voltage(&mut self) -> Result<f32, microscpi::Error> {
         Ok(5.0) // Return a fixed value for testing
     }
-}
-
-// This isn't a real test since we can't easily verify the exported content
-// without adding dependencies. Instead, it serves as a compile-time check
-// and also generates the documentation file during the build process.
-#[test]
-fn verify_export_compiles() {
-    // This test doesn't actually verify anything, but ensures the code compiles
-    let _interface = TestInterface {};
 }
