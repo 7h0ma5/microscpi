@@ -1,5 +1,3 @@
-use microscpi_doc;
-
 pub fn main() {
     let mut doc = microscpi_doc::Documentation::new();
 
