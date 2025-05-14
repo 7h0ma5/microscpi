@@ -323,6 +323,12 @@ async fn test_event_status_register() {
     interface.run(b"*ESR?\n", &mut output).await;
     assert_eq!(output, b"128\n");
 
+    // All enable status bits should be set by default.
+    output.clear();
+    interface.run(b"*ESE?\n", &mut output).await;
+    assert_eq!(output, b"255\n");
+
+    // After clearing, no status bits should be set.
     interface.run(b"*CLS\n", &mut output).await;
     assert!(interface.registers.event_status.is_empty());
 
@@ -336,4 +342,39 @@ async fn test_event_status_register() {
     output.clear();
     interface.run(b"*OPC?\n", &mut output).await;
     assert_eq!(output, b"1\n");
+}
+
+#[tokio::test]
+async fn test_status_byte_register() {
+    let (mut interface, mut output) = setup();
+
+    // All enable status bits should be set by default.
+    interface.run(b"*SRE?\n", &mut output).await;
+    assert_eq!(output, b"252\n");
+
+    // After startup the event status bit should be set.
+    output.clear();
+    interface.run(b"*STB?\n", &mut output).await;
+    assert_eq!(output, b"32\n");
+
+    // After clearing, no status bits should be set.
+    interface.run(b"*CLS\n", &mut output).await;
+    output.clear();
+    interface.run(b"*STB?\n", &mut output).await;
+    assert_eq!(output, b"0\n");
+
+    interface.errors.push_error(scpi::Error::SystemError);
+
+    output.clear();
+    interface.run(b"*STB?\n", &mut output).await;
+    assert_eq!(output, b"4\n");
+
+    // After clearing, no status bits should be set.
+    interface.run(b"*CLS\n", &mut output).await;
+    output.clear();
+    interface.run(b"*STB?\n", &mut output).await;
+    assert_eq!(output, b"0\n");
+
+    // And the error queue should be empty.
+    assert_eq!(interface.errors.error_count(), 0);
 }

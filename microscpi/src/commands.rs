@@ -84,29 +84,45 @@ pub trait StatusCommands: ErrorCommands {
         Ok(())
     }
 
+    /// *CLS
+    ///
+    /// Clears the status byte register and the error queue.
     fn clear_event_status(&mut self) -> Result<(), Error> {
         self.error_queue().clear();
         self.status_registers().event_status = EventStatus::empty();
         Ok(())
     }
 
+    /// *ESE?
+    ///
+    /// Returns the event status register.
     fn event_status_enable(&mut self) -> Result<u8, Error> {
         Ok(self.status_registers().event_status_enable.bits())
     }
 
+    /// *ESE <value>
+    ///
+    /// Sets the event status enable register.
     fn set_event_status_enable(&mut self, value: u8) -> Result<(), Error> {
         self.status_registers().event_status = EventStatus::from_bits_retain(value);
         Ok(())
     }
 
+    /// *ESR?
+    ///
+    /// Returns the event status enable register.
     fn event_status_register(&mut self) -> Result<u8, Error> {
-        let value = self.status_registers().event_status.bits();
-        let mask = self.status_registers().event_status_enable.bits();
-        Ok(value & mask)
+        let value = self.status_registers().event_status;
+        let mask = self.status_registers().event_status_enable;
+        Ok(value.intersection(mask).bits())
     }
 
+    /// *STB?
+    ///
+    /// Returns the status byte register.
     fn status_byte(&mut self) -> Result<u8, Error> {
         let mut status: StatusByte = StatusByte::empty();
+        let mask = self.status_registers().status_byte_enable;
 
         if self.error_queue().error_count() > 0 {
             status.insert(StatusByte::ERROR_EVENT_QUEUE);
@@ -116,6 +132,21 @@ pub trait StatusCommands: ErrorCommands {
             status.insert(StatusByte::STANDARD_EVENT);
         }
 
-        Ok(status.bits())
+        Ok(status.intersection(mask).bits())
+    }
+
+    /// *SRE?
+    ///
+    /// Returns the status enable register.
+    fn status_byte_enable(&mut self) -> Result<u8, Error> {
+        Ok(self.status_registers().status_byte_enable.bits())
+    }
+
+    /// *SRE <value>
+    ///
+    /// Sets the status enable register.
+    fn set_status_byte_enable(&mut self, value: u8) -> Result<(), Error> {
+        self.status_registers().event_status_enable = EventStatus::from_bits_retain(value);
+        Ok(())
     }
 }

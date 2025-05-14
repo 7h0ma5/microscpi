@@ -362,6 +362,30 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
             handler: CommandHandler::StandardFunction("StatusCommands::event_status_register"),
             future: false,
         });
+
+        command_set.push(CommandDefinition {
+            id: None,
+            args: Vec::new(),
+            command: Command::try_from("*STB?").unwrap(),
+            handler: CommandHandler::StandardFunction("StatusCommands::status_byte"),
+            future: false,
+        });
+
+        command_set.push(CommandDefinition {
+            id: None,
+            args: Vec::new(),
+            command: Command::try_from("*SRE?").unwrap(),
+            handler: CommandHandler::StandardFunction("StatusCommands::status_byte_enable"),
+            future: false,
+        });
+
+        command_set.push(CommandDefinition {
+            id: None,
+            args: vec![Type::Verbatim(quote! { u8 })],
+            command: Command::try_from("*SRE").unwrap(),
+            handler: CommandHandler::StandardFunction("StatusCommands::set_status_byte_enable"),
+            future: false,
+        });
     }
 
     // Extract user-defined SCPI commands from the implementation block
