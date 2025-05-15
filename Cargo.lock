@@ -415,7 +415,7 @@ checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 
 [[package]]
 name = "microscpi"
-version = "0.4.0"
+version = "0.5.0-beta.1"
 dependencies = [
  "bitflags 2.9.0",
  "criterion",
@@ -427,14 +427,14 @@ dependencies = [
 
 [[package]]
 name = "microscpi-common"
-version = "0.4.0"
+version = "0.5.0-beta.1"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "microscpi-doc"
-version = "0.4.0"
+version = "0.5.0-beta.1"
 dependencies = [
  "microscpi-common",
  "regex",
@@ -446,7 +446,7 @@ dependencies = [
 
 [[package]]
 name = "microscpi-fuzz"
-version = "0.4.0"
+version = "0.5.0-beta.1"
 dependencies = [
  "libfuzzer-sys",
  "microscpi",
@@ -455,7 +455,7 @@ dependencies = [
 
 [[package]]
 name = "microscpi-macros"
-version = "0.4.0"
+version = "0.5.0-beta.1"
 dependencies = [
  "microscpi-common",
  "proc-macro-error2",
