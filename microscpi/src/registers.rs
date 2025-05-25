@@ -19,6 +19,8 @@ bitflags::bitflags! {
         const MESSAGE_AVAILABLE = (1 << 4);
         const DATA_QUESTIONABLE = (1 << 3);
         const ERROR_EVENT_QUEUE = (1 << 2);
+        const IMPLEMENTOR_DEFINED_1 = (1 << 1);
+        const IMPLEMENTOR_DEFINED_0 = (1 << 0);
     }
 }
 
@@ -37,7 +39,9 @@ impl Default for StatusRegisters {
         Self {
             event_status: EventStatus::POWER_ON,
             event_status_enable: EventStatus::all(),
-            status_byte_enable: StatusByte::all(),
+            status_byte_enable: StatusByte::all() 
+                & !StatusByte::IMPLEMENTOR_DEFINED_1 
+                & !StatusByte::IMPLEMENTOR_DEFINED_0,
         }
     }
 }

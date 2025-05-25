@@ -104,17 +104,22 @@ pub trait StatusCommands: ErrorCommands {
     ///
     /// Sets the event status enable register.
     fn set_event_status_enable(&mut self, value: u8) -> Result<(), Error> {
-        self.status_registers().event_status = EventStatus::from_bits_retain(value);
+        self.status_registers().event_status_enable = EventStatus::from_bits_retain(value);
         Ok(())
     }
 
     /// *ESR?
     ///
-    /// Returns the event status enable register.
+    /// Returns the event status register and clears it.
     fn event_status_register(&mut self) -> Result<u8, Error> {
         let value = self.status_registers().event_status;
         let mask = self.status_registers().event_status_enable;
-        Ok(value.intersection(mask).bits())
+        let result = value.intersection(mask).bits();
+        
+        // Clear the event status register after reading (per SCPI standard)
+        self.status_registers().event_status = EventStatus::empty();
+        
+        Ok(result)
     }
 
     /// *STB?
@@ -146,7 +151,7 @@ pub trait StatusCommands: ErrorCommands {
     ///
     /// Sets the status enable register.
     fn set_status_byte_enable(&mut self, value: u8) -> Result<(), Error> {
-        self.status_registers().event_status_enable = EventStatus::from_bits_retain(value);
+        self.status_registers().status_byte_enable = StatusByte::from_bits_retain(value);
         Ok(())
     }
 }
