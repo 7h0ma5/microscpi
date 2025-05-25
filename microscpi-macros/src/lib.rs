@@ -1,3 +1,7 @@
+//! This crate provides procedural macros for the microscpi library.
+//!
+//! The main macro is `interface`, which processes an implementation block
+//! to generate the code needed for an SCPI command interpreter.
 use std::rc::Rc;
 
 use proc_macro::TokenStream;
@@ -12,11 +16,6 @@ mod tree;
 
 use microscpi_common::Command;
 use tree::Tree;
-
-/// This crate provides procedural macros for the microscpi library.
-///
-/// The main macro is `interface`, which processes an implementation block
-/// to generate the code needed for an SCPI command interpreter.
 
 /// Represents a handler for an SCPI command.
 ///

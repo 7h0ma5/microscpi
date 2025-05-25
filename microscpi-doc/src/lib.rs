@@ -65,6 +65,12 @@ pub struct Documentation {
     pub commands: Vec<CommandDocumentation>,
 }
 
+impl Default for Documentation {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Documentation {
     /// Creates a new empty Documentation.
     pub fn new() -> Self {
@@ -95,7 +101,7 @@ impl Documentation {
     pub fn write_to_file(&self, path: impl AsRef<Path>) -> std::io::Result<()> {
         let content = self
             .to_json()
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
 
         std::fs::write(path, content)
     }
@@ -128,7 +134,7 @@ fn get_command_doc(item_fn: &ImplItemFn) -> String {
         .iter()
         .filter(|attr| attr.path().is_ident("doc"))
         .filter_map(|attr| {
-            if let Ok(syn::Meta::NameValue(meta)) = attr.meta.clone().try_into() {
+            if let syn::Meta::NameValue(meta) = attr.meta.clone() {
                 if let syn::Expr::Lit(expr_lit) = meta.value {
                     if let syn::Lit::Str(lit_str) = expr_lit.lit {
                         return Some(lit_str.value());

@@ -1,5 +1,6 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use microscpi::Interface;
+use std::hint::black_box;
 
 // Example benchmark for the `system_value` function
 pub struct ExampleInterface {
