@@ -127,17 +127,19 @@ pub trait StatusCommands: ErrorCommands {
     /// Returns the status byte register.
     fn status_byte(&mut self) -> Result<u8, Error> {
         let mut status: StatusByte = StatusByte::empty();
-        let mask = self.status_registers().status_byte_enable;
 
         if self.error_queue().error_count() > 0 {
             status.insert(StatusByte::ERROR_EVENT_QUEUE);
         }
 
-        if self.event_status_register()? != 0 {
+        // Check event status without clearing it (unlike *ESR? which does clear)
+        let event_status = self.status_registers().event_status;
+        let event_enable = self.status_registers().event_status_enable;
+        if event_status.intersection(event_enable).bits() != 0 {
             status.insert(StatusByte::STANDARD_EVENT);
         }
 
-        Ok(status.intersection(mask).bits())
+        Ok(status.bits())
     }
 
     /// *SRE?
