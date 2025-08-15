@@ -47,7 +47,7 @@ where
 ///
 /// * `SYSTem:VERSion?`
 pub trait StandardCommands {
-    fn system_version(&mut self) -> Result<Characters, Error> {
+    fn system_version(&mut self) -> Result<Characters<'_>, Error> {
         Ok(Characters(SCPI_STD_VERSION))
     }
 }

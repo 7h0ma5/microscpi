@@ -116,7 +116,7 @@ fn is_whitespace(input: u8) -> bool {
 }
 
 /// Parses whitespace characters.
-fn whitespace(input: &[u8]) -> ParseResult<&[u8]> {
+fn whitespace(input: &[u8]) -> ParseResult<'_, &[u8]> {
     match take_while(is_whitespace)(input) {
         // If no input is remaning, the input is incomplete.
         Ok((&[], &[])) => Err(ParseError::Incomplete),
@@ -135,33 +135,33 @@ fn tag(tag: u8) -> impl Fn(&[u8]) -> ParseResult<u8> {
 }
 
 /// Parses a sequence of digits.
-fn digits(input: &[u8]) -> ParseResult<&[u8]> {
+fn digits(input: &[u8]) -> ParseResult<'_, &[u8]> {
     let (i1, _) = satisfy(|c| c.is_ascii_digit())(input)?;
     let (i2, res) = take_while(|c| c.is_ascii_digit())(i1)?;
     Ok((i2, &input[..res.len() + 1]))
 }
 
 /// Parses a program mnemonic (e.g., "SYSTEM").
-fn program_mnemonic(input: &[u8]) -> ParseResult<&[u8]> {
+fn program_mnemonic(input: &[u8]) -> ParseResult<'_, &[u8]> {
     let (i1, _) = satisfy(|c| c.is_ascii_alphabetic())(input)?;
     let (i2, res) = take_while(|c| c.is_ascii_alphanumeric() || c == b'_')(i1)?;
     Ok((i2, &input[..res.len() + 1]))
 }
 
 /// Parses a sign character (`+` or `-`).
-fn sign(input: &[u8]) -> ParseResult<u8> {
+fn sign(input: &[u8]) -> ParseResult<'_, u8> {
     tag(b'+')(input).or_else(|_| tag(b'-')(input))
 }
 
 /// Parses a label.
-fn characters(input: &[u8]) -> ParseResult<Value<'_>> {
+fn characters(input: &[u8]) -> ParseResult<'_, Value<'_>> {
     let (input, res) = program_mnemonic(input)?;
     let character_str = str::from_utf8(res)?;
     Ok((input, Value::Characters(character_str)))
 }
 
 /// Parses the mantissa part of a decimal number.
-fn mantissa(input: &[u8]) -> ParseResult<&[u8]> {
+fn mantissa(input: &[u8]) -> ParseResult<'_, &[u8]> {
     let (i1, _sign) = optional(sign)(input)?;
     let (i2, d1) = optional(digits)(i1)?;
     let (i3, _decimal) = optional(tag(b'.'))(i2)?;
@@ -174,7 +174,7 @@ fn mantissa(input: &[u8]) -> ParseResult<&[u8]> {
 }
 
 /// Parses the exponent part of a decimal number.
-fn exponent(input: &[u8]) -> ParseResult<&[u8]> {
+fn exponent(input: &[u8]) -> ParseResult<'_, &[u8]> {
     let (i1, _) = satisfy(|c| c == b'E' || c == b'e')(input)?;
     let (i2, _) = optional(sign)(i1)?;
     let (i3, _) = digits(i2)?;
@@ -182,7 +182,7 @@ fn exponent(input: &[u8]) -> ParseResult<&[u8]> {
 }
 
 /// Parses a decimal number.
-fn decimal_numeric_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
+fn decimal_numeric_program_data(input: &[u8]) -> ParseResult<'_, Value<'_>> {
     let (i1, _) = mantissa(input)?;
     let (i2, _) = optional(exponent)(i1)?;
     let res = str::from_utf8(&input[..input.len() - i2.len()])?;
@@ -190,7 +190,7 @@ fn decimal_numeric_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
 }
 
 /// Parses a hexadecimal number.
-fn hexadecimal_numeric_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
+fn hexadecimal_numeric_program_data(input: &[u8]) -> ParseResult<'_, Value<'_>> {
     let (i1, _) = tag(b'#')(input)?;
     let (i2, _) = satisfy(|c| c == b'H' || c == b'h')(i1)?;
     let (i3, _) = satisfy(|c| c.is_ascii_hexdigit())(i2)?;
@@ -200,7 +200,7 @@ fn hexadecimal_numeric_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
 }
 
 /// Parses a binary number.
-fn binary_numeric_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
+fn binary_numeric_program_data(input: &[u8]) -> ParseResult<'_, Value<'_>> {
     let (i1, _) = tag(b'#')(input)?;
     let (i2, _) = satisfy(|c| c == b'B' || c == b'b')(i1)?;
     let (i3, _) = satisfy(|c| c == b'0' || c == b'1')(i2)?;
@@ -210,7 +210,7 @@ fn binary_numeric_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
 }
 
 /// Parses an octal number.
-fn octal_numeric_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
+fn octal_numeric_program_data(input: &[u8]) -> ParseResult<'_, Value<'_>> {
     let (i1, _) = tag(b'#')(input)?;
     let (i2, _) = satisfy(|c| c == b'Q' || c == b'q')(i1)?;
     let (i3, _) = satisfy(|c| (b'0'..b'8').contains(&c))(i2)?;
@@ -220,7 +220,7 @@ fn octal_numeric_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
 }
 
 /// Parses a single quoted string.
-fn single_quoted_string_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
+fn single_quoted_string_program_data(input: &[u8]) -> ParseResult<'_, Value<'_>> {
     let (i1, _) = tag(b'\'')(input)?;
     let (i2, res) = take_while(|c| c != b'\'')(i1)?;
     let (i3, _) = tag(b'\'')(i2)?;
@@ -229,7 +229,7 @@ fn single_quoted_string_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
 }
 
 /// Parses a double quoted string.
-fn double_quoted_string_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
+fn double_quoted_string_program_data(input: &[u8]) -> ParseResult<'_, Value<'_>> {
     let (i1, _) = tag(b'"')(input)?;
     let (i2, res) = take_while(|c| c != b'"')(i1)?;
     let (i3, _) = tag(b'"')(i2)?;
@@ -238,7 +238,7 @@ fn double_quoted_string_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
 }
 
 /// Parses arbitrary 8 bit binary data.
-fn arbitrary_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
+fn arbitrary_program_data(input: &[u8]) -> ParseResult<'_, Value<'_>> {
     let (i1, _) = tag(b'#')(input)?;
     let (i2, digits) = satisfy(|c| (b'1'..b'9').contains(&c))(i1)
         .map(|(i, value)| (i, (value - b'0') as usize))?;
@@ -261,7 +261,7 @@ fn arbitrary_program_data(input: &[u8]) -> ParseResult<Value<'_>> {
 }
 
 /// Parses a header separator (colon with optional whitespace).
-fn header_separator(input: &[u8]) -> ParseResult<()> {
+fn header_separator(input: &[u8]) -> ParseResult<'_, ()> {
     let (input, _) = optional(whitespace)(input)?;
     let (input, _) = tag(b':')(input).map_err(|_| Error::HeaderSeparatorError)?;
     let (input, _) = optional(whitespace)(input)?;
@@ -333,7 +333,7 @@ fn command_program_header(
 }
 
 /// Parses an argument separator (comma with optional whitespace).
-fn argument_separator(input: &[u8]) -> ParseResult<()> {
+fn argument_separator(input: &[u8]) -> ParseResult<'_, ()> {
     let (input, _) = optional(whitespace)(input)?;
     let (input, _) = tag(b',')(input).map_err(|_| Error::InvalidSeparator)?;
     let (input, _) = optional(whitespace)(input)?;
@@ -341,7 +341,7 @@ fn argument_separator(input: &[u8]) -> ParseResult<()> {
 }
 
 /// Parses an argument value.
-fn argument(input: &[u8]) -> ParseResult<Value<'_>> {
+fn argument(input: &[u8]) -> ParseResult<'_, Value<'_>> {
     characters(input)
         .or_else(|_| decimal_numeric_program_data(input))
         .or_else(|_| hexadecimal_numeric_program_data(input))
