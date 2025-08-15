@@ -199,6 +199,14 @@ async fn test_invalid_command() {
         Some(scpi::Error::UndefinedHeader)
     );
     assert_eq!(interface.errors.pop_error(), None);
+
+    interface.run(b"INVALID:CMD;*STB?\n", &mut output).await;
+    assert_eq!(output, b"36\n");
+    assert_eq!(
+        interface.errors.pop_error(),
+        Some(scpi::Error::UndefinedHeader)
+    );
+    assert_eq!(interface.errors.pop_error(), None);
 }
 
 #[tokio::test]

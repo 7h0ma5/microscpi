@@ -67,18 +67,35 @@ pub trait Interface: ErrorHandler {
             #[cfg(feature = "defmt")]
             defmt::trace!("Run: {:?}", input);
 
-            if let Err(ParseError::Incomplete) = result {
-                #[cfg(feature = "defmt")]
-                defmt::trace!("Incomplete Input");
-                return input;
-            } else if let Err(error) = result {
-                #[cfg(feature = "defmt")]
-                defmt::trace!("Parse error");
-                self.handle_error(error.into());
-                return &[];
-            }
+            let (i, call) = match result {
+                Ok(result) => result,
+                Err(ParseError::Incomplete) => {
+                    #[cfg(feature = "defmt")]
+                    defmt::trace!("Incomplete Input");
+                    return input;
+                }
+                Err(error) => {
+                    #[cfg(feature = "defmt")]
+                    defmt::trace!("Parse error");
+                    self.handle_error(error.into());
 
-            let (i, call) = result.unwrap();
+                    // Try to continue with the rest of the input after a command terminator.
+                    if let Some((end, terminator)) = input
+                        .iter()
+                        .enumerate()
+                        .find(|(_i, c)| **c == b';' || **c == b'\n')
+                    {
+                        if *terminator == b'\n' {
+                            return &input[end + 1..];
+                        } else {
+                            input = &input[end + 1..];
+                            continue;
+                        }
+                    } else {
+                        return &[];
+                    }
+                }
+            };
 
             if let Some(call) = call {
                 if let Err(error) = self.execute(&call, response).await {
