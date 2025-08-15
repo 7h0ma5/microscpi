@@ -29,7 +29,7 @@ Add microSCPI to your project by including it in your `Cargo.toml`:
 
 ```toml
 [dependencies]
-microscpi = "0.4.0"
+microscpi = "0.5.0"
 ```
 
 If you need async functionality, make sure to include an async runtime like `tokio`:
