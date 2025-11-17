@@ -207,13 +207,17 @@ impl Response for f64 {
     }
 }
 
-impl<const N: usize> Response for heapless::String<N> {
+impl<LenT: heapless::LenType, S: heapless::string::StringStorage> Response
+    for heapless::string::StringInner<LenT, S>
+{
     fn write_response(&self, f: &mut impl Write) -> Result<(), Error> {
         write!(f, "\"{}\"", self.as_str())
     }
 }
 
-impl<const N: usize, T: Response> Response for heapless::Vec<T, N> {
+impl<T: Response, LenT: heapless::LenType, S: heapless::vec::VecStorage<T>> Response
+    for heapless::vec::VecInner<T, LenT, S>
+{
     fn write_response(&self, f: &mut impl Write) -> Result<(), Error> {
         for (i, item) in self.iter().enumerate() {
             if i > 0 {
