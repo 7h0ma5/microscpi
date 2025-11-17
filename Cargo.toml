@@ -10,7 +10,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.5.0"
+version = "0.6.0"
 authors = ["Thomas Gatzweiler <mail@thomasgatzweiler.com>"]
 edition = "2024"
 homepage = "https://github.com/7h0ma5/microscpi"
@@ -18,10 +18,10 @@ repository = "https://github.com/7h0ma5/microscpi"
 license = "MIT"
 
 [workspace.dependencies]
-microscpi = { path = "microscpi", version = "0.5.0" }
-microscpi-common = { path = "microscpi-common", version = "0.5.0" }
-microscpi-doc = { path = "microscpi-doc", version = "0.5.0" }
-microscpi-macros = { path = "microscpi-macros", version = "0.5.0" }
+microscpi = { path = "microscpi", version = "0.6.0" }
+microscpi-common = { path = "microscpi-common", version = "0.6.0" }
+microscpi-doc = { path = "microscpi-doc", version = "0.6.0" }
+microscpi-macros = { path = "microscpi-macros", version = "0.6.0" }
 
 [workspace.metadata.release]
 allow-branch = ["main"]
