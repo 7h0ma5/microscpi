@@ -30,6 +30,18 @@ pub trait ErrorCommands {
             Ok((0, ""))
         }
     }
+
+    fn system_error_all(&mut self) -> Result<Vec<(i16, &'static str)>, Error> {
+        let errors = self.error_queue().all();
+        if !errors.is_empty() {
+            Ok(errors
+                .iter()
+                .map(|error| (error.number(), (*error).into()))
+                .collect::<Vec<_>>())
+        } else {
+            Ok(vec![(0, "")])
+        }
+    }
 }
 
 impl<I> ErrorHandler for I

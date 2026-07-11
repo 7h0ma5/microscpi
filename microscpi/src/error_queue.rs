@@ -15,6 +15,8 @@ pub trait ErrorQueue: Default {
     /// Get and remove the error in the front of the error queue. If the queue
     /// is empty, [None] is returned.
     fn pop_error(&mut self) -> Option<Error>;
+    /// Get all errors list
+    fn all(&self) -> Vec<Error>;
     /// Clear the error queue.
     fn clear(&mut self);
 }
@@ -49,6 +51,10 @@ impl<const N: usize> ErrorQueue for StaticErrorQueue<N> {
 
     fn error_count(&self) -> usize {
         self.0.len()
+    }
+
+    fn all(&self) -> Vec<Error> {
+        self.0.iter().copied().collect()
     }
 
     fn clear(&mut self) {
