@@ -111,6 +111,9 @@ impl CommandDefinition {
                 if args_len == 0 && #arg_count > 0 {
                     Err(::microscpi::Error::MissingParameter)
                 }
+                else if args_len > 0 && #arg_count == 0 {
+                    Err(::microscpi::Error::ParameterNotAllowed)
+                }
                 else if args_len != #arg_count {
                     Err(::microscpi::Error::UnexpectedNumberOfParameters)
                 }
