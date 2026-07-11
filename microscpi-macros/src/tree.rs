@@ -28,7 +28,7 @@ impl std::fmt::Display for Error {
 type NodeId = usize;
 
 /// Represents a tree of SCPI commands.
-/// 
+///
 /// The tree is used to efficiently look up command handlers based on the parsed command string.
 /// It maps each component of a command path to the appropriate handler function.
 pub struct Tree {
@@ -37,7 +37,7 @@ pub struct Tree {
 }
 
 /// A node in the SCPI command tree.
-/// 
+///
 /// Each node can have:
 /// - Children nodes representing the next part of a command
 /// - An optional command handler for when this node is a command endpoint
@@ -67,7 +67,7 @@ impl Tree {
     /// - "STATUS:EVENT?"
     /// - "STAT:EVENT?"
     /// - "EVENT?" (since STATUS is optional)
-    /// 
+    ///
     /// # Arguments
     /// * `cmd` - The command definition to insert
     ///
@@ -128,8 +128,11 @@ impl Tree {
             self.insert_at(node_id, &path[1..], cmd)?;
         } else {
             // We've reached the end of the path, register the command here
-            let node = self.items.get_mut(&id).expect("Node ID must exist in the tree");
-            
+            let node = self
+                .items
+                .get_mut(&id)
+                .expect("Node ID must exist in the tree");
+
             if cmd.command.is_query() {
                 // This is a query command (ends with '?')
                 if let Some(existing) = &node.query {

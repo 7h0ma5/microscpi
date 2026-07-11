@@ -115,10 +115,10 @@ pub trait StatusCommands: ErrorCommands {
         let value = self.status_registers().event_status;
         let mask = self.status_registers().event_status_enable;
         let result = value.intersection(mask).bits();
-        
+
         // Clear the event status register after reading (per SCPI standard)
         self.status_registers().event_status = EventStatus::empty();
-        
+
         Ok(result)
     }
 
