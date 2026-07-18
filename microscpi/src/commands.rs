@@ -15,7 +15,7 @@ use crate::registers::{EventStatus, StatusByte, StatusRegisters};
 /// # Implemented commands
 ///
 /// * `SYSTem:ERRor:[NEXT]?`
-/// * `SYSTem:ERRor:[COUNt]?`
+/// * `SYSTem:ERRor:COUNt?`
 pub trait ErrorCommands {
     fn error_queue(&mut self) -> &mut impl ErrorQueue;
 
