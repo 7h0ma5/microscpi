@@ -18,11 +18,11 @@ pub struct CommandDocumentation {
     /// The plain text documentation.
     pub description: Option<String>,
     /// Structured data extracted from YAML blocks in the documentation.
-    pub attributes: Option<serde_yaml::Value>,
+    pub attributes: Option<yaml_serde::Value>,
 }
 
 /// Parses a doc comment string, extracting any YAML blocks.
-fn parse_doc(doc_str: &str) -> (Option<String>, Option<serde_yaml::Value>) {
+fn parse_doc(doc_str: &str) -> (Option<String>, Option<yaml_serde::Value>) {
     // Regular expression to remove a single space in front of each line.
     let clean_re = regex::Regex::new(r"(?m)^ ?").unwrap();
     let doc_str = clean_re.replace_all(doc_str, "");
@@ -33,7 +33,7 @@ fn parse_doc(doc_str: &str) -> (Option<String>, Option<serde_yaml::Value>) {
     let mut attributes = None;
     let description = if let Some(captures) = re.captures(&doc_str) {
         if let Some(yaml) = captures.get(1) {
-            match serde_yaml::from_str(yaml.as_str()) {
+            match yaml_serde::from_str(yaml.as_str()) {
                 Ok(yaml) => {
                     attributes = Some(yaml);
                     // Remove the YAML block from the text
