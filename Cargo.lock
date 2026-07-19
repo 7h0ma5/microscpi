@@ -423,7 +423,6 @@ name = "microscpi-macros"
 version = "0.6.0"
 dependencies = [
  "microscpi-common",
- "proc-macro-error2",
  "proc-macro2",
  "quote",
  "syn",
