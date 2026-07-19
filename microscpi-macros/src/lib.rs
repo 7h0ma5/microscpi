@@ -5,7 +5,6 @@
 use std::rc::Rc;
 
 use proc_macro::TokenStream;
-use proc_macro_error2::{abort, proc_macro_error};
 use quote::{format_ident, quote};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
@@ -140,10 +139,10 @@ impl CommandDefinition {
                     cmd = Some(name.value());
                     Ok(())
                 } else {
-                    abort!(
+                    Err(syn::Error::new(
                         meta.path.span(),
-                        "SCPI command name must be a string literal"
-                    )
+                        "SCPI command name must be a string literal",
+                    ))
                 }
             } else {
                 Ok(())
@@ -171,10 +170,10 @@ impl CommandDefinition {
                 future: func.sig.asyncness.is_some(),
             })
         } else {
-            abort!(
+            Err(syn::Error::new(
                 attr.span(),
-                "Missing `cmd` attribute in SCPI command. Expected: #[scpi(cmd = \"COMMAND:NAME\")]"
-            )
+                "Missing `cmd` attribute in SCPI command. Expected: #[scpi(cmd = \"COMMAND:NAME\")]",
+            ))
         }
     }
 }
@@ -262,7 +261,6 @@ impl AsRef<[Rc<CommandDefinition>]> for CommandSet {
 /// - `ErrorCommands`: Add error-related commands (e.g., `SYSTem:ERRor:[NEXT]?`)
 /// - `StatusCommands`: Add status-related commands (e.g., `*OPC`, `*CLS`)
 ///
-#[proc_macro_error]
 #[proc_macro_attribute]
 pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attrs: Punctuated<Path, Comma> = parse_macro_input!(attr with Punctuated::parse_terminated);
@@ -279,7 +277,9 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
         } else if attr.is_ident("StatusCommands") {
             config.status_commands = true;
         } else {
-            abort!(attr.span(), "Unknown SCPI interface option.");
+            return syn::Error::new(attr.span(), "Unknown SCPI interface option.")
+                .to_compile_error()
+                .into();
         }
     }
 
@@ -397,12 +397,16 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
     // Insert all commands into the command tree
     for cmd in command_set.as_ref().iter() {
         if let Err(error) = tree.insert(cmd.clone()) {
-            abort!(
+            return syn::Error::new(
                 cmd.handler.span(),
-                "Failed to register SCPI command '{}': {}",
-                cmd.command.canonical_path(),
-                error
+                format!(
+                    "Failed to register SCPI command '{}': {}",
+                    cmd.command.canonical_path(),
+                    error,
+                ),
             )
+            .to_compile_error()
+            .into();
         }
     }
 

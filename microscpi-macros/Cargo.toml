@@ -18,4 +18,3 @@ microscpi-common.workspace = true
 syn = { version = "2.0.77", features = ["full"] }
 quote = "1.0.37"
 proc-macro2 = "1"
-proc-macro-error2 = "2.0.1"
