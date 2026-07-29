@@ -5,7 +5,8 @@ use std::sync::OnceLock;
 
 use libfuzzer_sys::fuzz_target;
 use microscpi::{
-    self as scpi, Adapter, ErrorCommands, ErrorQueue, Interface, StandardCommands, StaticErrorQueue,
+    self as scpi, Adapter, Characters, ErrorCommands, ErrorQueue, Interface, StandardCommands,
+    StaticErrorQueue,
 };
 use tokio::runtime::Runtime;
 
@@ -82,9 +83,9 @@ impl TestInterface {
     }
 
     #[scpi(cmd = "*IDN?")]
-    pub async fn idn(&mut self) -> Result<&str, scpi::Error> {
+    pub async fn idn(&mut self) -> Result<Characters<'_>, scpi::Error> {
         self.result = Some(TestResult::IdnOk);
-        Ok("MICROSCPI,TEST,1,1.0")
+        Ok(Characters("MICROSCPI,TEST,1,1.0"))
     }
 
     #[scpi(cmd = "VALue:STRing?")]
