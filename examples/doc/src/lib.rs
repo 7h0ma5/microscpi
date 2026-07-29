@@ -1,4 +1,4 @@
-use microscpi::{self, ErrorHandler};
+use microscpi::{self, Characters, ErrorHandler};
 
 pub struct TestInterface {}
 
@@ -14,11 +14,11 @@ impl TestInterface {
     ///
     /// ```yaml
     /// unit: string
-    /// example: "ACME,Widget3000,1234,v1.02"
+    /// example: ACME,Widget3000,1234,v1.02
     /// ```
     #[scpi(cmd = "*IDN?")]
-    fn identify(&mut self) -> Result<&str, microscpi::Error> {
-        Ok("TEST,DEVICE,1234,1.0")
+    fn identify(&mut self) -> Result<Characters<'_>, microscpi::Error> {
+        Ok(Characters("TEST,DEVICE,1234,1.0"))
     }
 
     /// Sets a measurement parameter.

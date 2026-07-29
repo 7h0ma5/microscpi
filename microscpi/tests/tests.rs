@@ -1,6 +1,6 @@
 use microscpi::{
-    self as scpi, ErrorCommands, ErrorQueue, Interface, StandardCommands, StaticErrorQueue,
-    StatusCommands, StatusRegisters,
+    self as scpi, Characters, ErrorCommands, ErrorQueue, Interface, StandardCommands,
+    StaticErrorQueue, StatusCommands, StatusRegisters,
 };
 
 #[derive(Debug, PartialEq)]
@@ -41,9 +41,9 @@ impl TestInterface {
     }
 
     #[scpi(cmd = "*IDN?")]
-    pub async fn idn(&mut self) -> Result<&str, scpi::Error> {
+    pub async fn idn(&mut self) -> Result<Characters<'_>, scpi::Error> {
         self.result = Some(TestResult::IdnOk);
-        Ok("MICROSCPI,TEST,1,1.0")
+        Ok(Characters("MICROSCPI,TEST,1,1.0"))
     }
 
     #[scpi(cmd = "VALue:STRing?")]
@@ -306,7 +306,7 @@ async fn test_multiple_commands() {
     let (mut interface, mut output) = setup();
     interface.run(b"*RST\n*IDN?\n", &mut output).await;
     assert_eq!(interface.result, Some(TestResult::IdnOk));
-    assert_eq!(output, b"\"MICROSCPI,TEST,1,1.0\"\n");
+    assert_eq!(output, b"MICROSCPI,TEST,1,1.0\n");
 }
 
 #[tokio::test]
