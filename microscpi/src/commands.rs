@@ -30,6 +30,18 @@ pub trait ErrorCommands {
             Ok((0, ""))
         }
     }
+
+    fn system_error_all(&mut self) -> Result<Vec<(i16, &'static str)>, Error> {
+        let errors = self.error_queue().all();
+        if !errors.is_empty() {
+            Ok(errors
+                .iter()
+                .map(|error| (error.number(), (*error).into()))
+                .collect::<Vec<_>>())
+        } else {
+            Ok(vec![(0, "")])
+        }
+    }
 }
 
 impl<I> ErrorHandler for I
@@ -115,10 +127,10 @@ pub trait StatusCommands: ErrorCommands {
         let value = self.status_registers().event_status;
         let mask = self.status_registers().event_status_enable;
         let result = value.intersection(mask).bits();
-        
+
         // Clear the event status register after reading (per SCPI standard)
         self.status_registers().event_status = EventStatus::empty();
-        
+
         Ok(result)
     }
 
