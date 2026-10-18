@@ -101,6 +101,54 @@
 //!     assert_eq!(output, b"-113,\"Undefined header\"\n");
 //! }
 //! ```
+//!
+//! ## Splitting commands across modules
+//!
+//! Commands can be defined in multiple modules or files with the
+//! `#[commands]` attribute. The interface then collects them with the
+//! `modules(...)` option. The command handlers must be visible to the
+//! interface, e.g. with `pub(crate)`.
+//!
+//! ```
+//! use microscpi::{self as scpi, Interface};
+//!
+//! pub struct ExampleInterface {
+//!     value: u64
+//! }
+//!
+//! impl scpi::ErrorHandler for ExampleInterface {
+//!     fn handle_error(&mut self, error: scpi::Error) {
+//!         println!("Error: {error}");
+//!     }
+//! }
+//!
+//! mod system {
+//!     use super::*;
+//!
+//!     #[scpi::commands]
+//!     impl ExampleInterface {
+//!         #[scpi(cmd = "SYSTem:VALue?")]
+//!         pub(crate) async fn system_value(&mut self) -> Result<u64, scpi::Error> {
+//!             Ok(self.value)
+//!         }
+//!     }
+//! }
+//!
+//! #[scpi::interface(modules(system))]
+//! impl ExampleInterface {}
+//!
+//! #[tokio::main]
+//! pub async fn main() {
+//!     let mut output = Vec::new();
+//!     let mut interface = ExampleInterface { value: 42 };
+//!
+//!     interface.run(b"SYSTEM:VAL?\n", &mut output).await;
+//!
+//!     assert_eq!(output, b"42\n");
+//! }
+//! ```
+//!
+//! See `examples/modules` for an example with one file per module.
 #![cfg_attr(not(any(test, feature = "std")), no_std)]
 #![allow(async_fn_in_trait)]
 #![allow(clippy::from_str_radix_10)]
@@ -127,7 +175,9 @@ pub use commands::{ErrorCommands, StandardCommands};
 pub use error::Error;
 pub use error_queue::{ErrorQueue, StaticErrorQueue};
 pub use interface::{Adapter, ErrorHandler, Interface};
-pub use microscpi_macros::interface;
+#[doc(hidden)]
+pub use microscpi_macros::__interface;
+pub use microscpi_macros::{commands, interface};
 #[cfg(feature = "registers")]
 pub use registers::StatusRegisters;
 pub use response::{Arbitrary, Characters, Response, Write};

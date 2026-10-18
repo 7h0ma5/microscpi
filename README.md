@@ -82,7 +82,7 @@ For comprehensive documentation, visit [docs.rs/microscpi](https://docs.rs/micro
 microSCPI is organized as a workspace with the following components:
 
 - `microscpi`: The core library implementation
-- `microscpi-macros`: Procedural macros for the `#[microscpi::interface]` and `#[scpi]` attributes
+- `microscpi-macros`: Procedural macros for the `#[microscpi::interface]`, `#[microscpi::commands]` and `#[scpi]` attributes
 
 ## 👥 Contributing
 
