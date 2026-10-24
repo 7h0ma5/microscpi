@@ -307,7 +307,11 @@ async fn test_all_errors() {
 
     interface.run(b"SYST:ERR:ALL?\n", &mut output).await;
     assert_eq!(output, b"-310,\"System error\",-240,\"Hardware error\"\n");
-    assert_eq!(interface.errors.error_count(), 2);
+    assert_eq!(interface.errors.error_count(), 0);
+
+    output.clear();
+    interface.run(b"SYST:ERR:ALL?\n", &mut output).await;
+    assert_eq!(output, b"0,\"\"\n");
 }
 
 #[tokio::test]

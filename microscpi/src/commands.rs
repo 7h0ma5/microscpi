@@ -1,4 +1,6 @@
 //! This module containts implementations of SCPI standard commands.
+use core::cell::RefCell;
+
 use crate::{Characters, Error, ErrorHandler, ErrorQueue, Response, SCPI_STD_VERSION, Write};
 
 #[cfg(feature = "registers")]
@@ -33,19 +35,24 @@ pub trait ErrorCommands {
     }
 
     fn system_error_all(&mut self) -> Result<impl Response, Error> {
-        Ok(ErrorList(self.error_queue().all()))
+        Ok(ErrorDrain(RefCell::new(self.error_queue())))
     }
 }
 
-struct ErrorList<E>(E);
+struct ErrorDrain<'a, Q>(RefCell<&'a mut Q>);
 
-impl<E: core::ops::Deref<Target = [Error]>> Response for ErrorList<E> {
+impl<Q: ErrorQueue> Response for ErrorDrain<'_, Q> {
     fn write_response(&self, f: &mut impl Write) -> Result<(), Error> {
-        if self.0.is_empty() {
-            (0, "").write_response(f)
-        } else {
-            self.0.write_response(f)
+        let mut queue = self.0.borrow_mut();
+        let Some(first) = queue.pop_error() else {
+            return (0, "").write_response(f);
+        };
+        first.write_response(f)?;
+        while let Some(error) = queue.pop_error() {
+            f.write_char(',')?;
+            error.write_response(f)?;
         }
+        Ok(())
     }
 }
 

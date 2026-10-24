@@ -3,9 +3,6 @@ use crate::Error;
 /// An error queue stores the occurred errors until they are queried by the
 /// user. It should behave according to the SCPI standard.
 pub trait ErrorQueue: Default {
-    /// The collection of errors returned by [ErrorQueue::all].
-    type Errors: core::ops::Deref<Target = [Error]>;
-
     /// The number of errors currently stored in the error queue.
     fn error_count(&self) -> usize;
     /// Append a new error to the end of the error queue.
@@ -18,8 +15,6 @@ pub trait ErrorQueue: Default {
     /// Get and remove the error in the front of the error queue. If the queue
     /// is empty, [None] is returned.
     fn pop_error(&mut self) -> Option<Error>;
-    /// Get all errors list
-    fn all(&self) -> Self::Errors;
     /// Clear the error queue.
     fn clear(&mut self);
 }
@@ -36,8 +31,6 @@ impl<const N: usize> StaticErrorQueue<N> {
 }
 
 impl<const N: usize> ErrorQueue for StaticErrorQueue<N> {
-    type Errors = heapless::Vec<Error, N>;
-
     fn push_error(&mut self, error: Error) {
         #[cfg(feature = "defmt")]
         defmt::trace!("Push Error: {}", error);
@@ -56,10 +49,6 @@ impl<const N: usize> ErrorQueue for StaticErrorQueue<N> {
 
     fn error_count(&self) -> usize {
         self.0.len()
-    }
-
-    fn all(&self) -> Self::Errors {
-        self.0.iter().copied().collect()
     }
 
     fn clear(&mut self) {
@@ -107,20 +96,6 @@ mod tests {
         let mut queue: StaticErrorQueue<2> = StaticErrorQueue::new();
         let error = queue.pop_error();
         assert_eq!(error, None);
-    }
-
-    #[test]
-    fn test_all() {
-        let mut queue: StaticErrorQueue<3> = StaticErrorQueue::new();
-        assert!(queue.all().is_empty());
-
-        queue.push_error(Error::HardwareError);
-        queue.push_error(Error::DataTypeError);
-        assert_eq!(
-            queue.all().as_slice(),
-            &[Error::HardwareError, Error::DataTypeError]
-        );
-        assert_eq!(queue.error_count(), 2);
     }
 
     #[test]
