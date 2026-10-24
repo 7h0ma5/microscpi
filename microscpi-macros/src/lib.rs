@@ -318,6 +318,14 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
             handler: CommandHandler::StandardFunction("ErrorCommands::system_error_count"),
             future: false,
         });
+
+        command_set.push(CommandDefinition {
+            id: None,
+            args: Vec::new(),
+            command: Command::try_from("SYSTem:ERRor:ALL?").unwrap(),
+            handler: CommandHandler::StandardFunction("ErrorCommands::system_error_all"),
+            future: false,
+        });
     }
 
     if config.status_commands {

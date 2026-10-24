@@ -39,8 +39,8 @@ impl Default for StatusRegisters {
         Self {
             event_status: EventStatus::POWER_ON,
             event_status_enable: EventStatus::all(),
-            status_byte_enable: StatusByte::all() 
-                & !StatusByte::IMPLEMENTOR_DEFINED_1 
+            status_byte_enable: StatusByte::all()
+                & !StatusByte::IMPLEMENTOR_DEFINED_1
                 & !StatusByte::IMPLEMENTOR_DEFINED_0,
         }
     }

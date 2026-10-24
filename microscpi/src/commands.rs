@@ -1,5 +1,7 @@
 //! This module containts implementations of SCPI standard commands.
-use crate::{Characters, Error, ErrorHandler, ErrorQueue, SCPI_STD_VERSION};
+use core::cell::RefCell;
+
+use crate::{Characters, Error, ErrorHandler, ErrorQueue, Response, SCPI_STD_VERSION, Write};
 
 #[cfg(feature = "registers")]
 use crate::registers::{EventStatus, StatusByte, StatusRegisters};
@@ -16,6 +18,7 @@ use crate::registers::{EventStatus, StatusByte, StatusRegisters};
 ///
 /// * `SYSTem:ERRor:[NEXT]?`
 /// * `SYSTem:ERRor:COUNt?`
+/// * `SYSTem:ERRor:ALL?`
 pub trait ErrorCommands {
     fn error_queue(&mut self) -> &mut impl ErrorQueue;
 
@@ -29,6 +32,27 @@ pub trait ErrorCommands {
         } else {
             Ok((0, ""))
         }
+    }
+
+    fn system_error_all(&mut self) -> Result<impl Response, Error> {
+        Ok(ErrorDrain(RefCell::new(self.error_queue())))
+    }
+}
+
+struct ErrorDrain<'a, Q>(RefCell<&'a mut Q>);
+
+impl<Q: ErrorQueue> Response for ErrorDrain<'_, Q> {
+    fn write_response(&self, f: &mut impl Write) -> Result<(), Error> {
+        let mut queue = self.0.borrow_mut();
+        let Some(first) = queue.pop_error() else {
+            return (0, "").write_response(f);
+        };
+        first.write_response(f)?;
+        while let Some(error) = queue.pop_error() {
+            f.write_char(',')?;
+            error.write_response(f)?;
+        }
+        Ok(())
     }
 }
 
@@ -115,10 +139,10 @@ pub trait StatusCommands: ErrorCommands {
         let value = self.status_registers().event_status;
         let mask = self.status_registers().event_status_enable;
         let result = value.intersection(mask).bits();
-        
+
         // Clear the event status register after reading (per SCPI standard)
         self.status_registers().event_status = EventStatus::empty();
-        
+
         Ok(result)
     }
 

@@ -295,6 +295,26 @@ async fn test_next_error() {
 }
 
 #[tokio::test]
+async fn test_all_errors() {
+    let (mut interface, mut output) = setup();
+
+    interface.run(b"SYST:ERR:ALL?\n", &mut output).await;
+    assert_eq!(output, b"0,\"\"\n");
+
+    output.clear();
+    interface.errors.push_error(scpi::Error::SystemError);
+    interface.errors.push_error(scpi::Error::HardwareError);
+
+    interface.run(b"SYST:ERR:ALL?\n", &mut output).await;
+    assert_eq!(output, b"-310,\"System error\",-240,\"Hardware error\"\n");
+    assert_eq!(interface.errors.error_count(), 0);
+
+    output.clear();
+    interface.run(b"SYST:ERR:ALL?\n", &mut output).await;
+    assert_eq!(output, b"0,\"\"\n");
+}
+
+#[tokio::test]
 async fn test_value_string_with_whitespace() {
     let (mut interface, mut output) = setup();
     interface.run(b"  VAL:STR?  \n", &mut output).await;
