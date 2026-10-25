@@ -6,10 +6,14 @@ use std::rc::Rc;
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
+use syn::parse::{ParseStream, Parser};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
-use syn::{Attribute, Expr, Ident, ImplItemFn, ItemImpl, Lit, Path, Type, parse_macro_input};
+use syn::{
+    Attribute, Expr, Ident, ImplItem, ImplItemFn, ItemImpl, Lit, Meta, Path, Type, bracketed,
+    parse_macro_input,
+};
 
 mod tree;
 
@@ -267,27 +271,120 @@ impl AsRef<[Rc<CommandDefinition>]> for CommandSet {
 /// - `StandardCommands`: Add standard SCPI commands (e.g., `SYSTem:VERSion?`)
 /// - `ErrorCommands`: Add error-related commands (e.g., `SYSTem:ERRor:[NEXT]?`)
 /// - `StatusCommands`: Add status-related commands (e.g., `*OPC`, `*CLS`)
+/// - `modules(...)`: Add the commands of modules using `#[microscpi::commands]`
 ///
 #[proc_macro_attribute]
 pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let attrs: Punctuated<Path, Comma> = parse_macro_input!(attr with Punctuated::parse_terminated);
-    let mut input_impl = parse_macro_input!(item as ItemImpl);
+    let attrs = parse_macro_input!(attr with Punctuated::parse_terminated);
+    let (input_impl, commands) = split_impl(parse_macro_input!(item as ItemImpl));
+    let interface = expand(attrs, vec![commands]);
 
+    quote! {
+        #input_impl
+        #interface
+    }
+    .into()
+}
+
+/// Macro attribute to define SCPI commands in another module.
+///
+/// The module must be listed in the `modules(...)` option of the interface.
+/// Only one `commands` block is allowed per module.
+#[proc_macro_attribute]
+pub fn commands(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let (input_impl, commands) = split_impl(parse_macro_input!(item as ItemImpl));
+
+    quote! {
+        #input_impl
+
+        #[doc(hidden)]
+        macro_rules! __microscpi_commands {
+            ($($input:tt)*) => { ::microscpi::__interface! { $($input)* #commands } };
+        }
+
+        #[doc(hidden)]
+        pub(crate) use __microscpi_commands;
+    }
+    .into()
+}
+
+#[doc(hidden)]
+#[proc_macro]
+pub fn __interface(input: TokenStream) -> TokenStream {
+    let parser = |input: ParseStream| -> syn::Result<_> {
+        let attrs;
+        bracketed!(attrs in input);
+        let attrs = Punctuated::parse_terminated(&attrs)?;
+        let mut impls = Vec::new();
+        while !input.is_empty() {
+            impls.push(input.parse()?);
+        }
+        Ok((attrs, impls))
+    };
+
+    match parser.parse(input) {
+        Ok((attrs, impls)) => expand(attrs, impls).into(),
+        Err(error) => error.into_compile_error().into(),
+    }
+}
+
+/// Splits an `impl` block into the code without `#[scpi]` attributes, and the
+/// `#[scpi]` functions signatures used to generate the interface.
+fn split_impl(mut input_impl: ItemImpl) -> (ItemImpl, ItemImpl) {
+    let mut commands = input_impl.clone();
+    commands.items.retain(|item| match item {
+        ImplItem::Fn(item_fn) => item_fn
+            .attrs
+            .iter()
+            .any(|attr| attr.path().is_ident("scpi")),
+        _ => false,
+    });
+    for item in commands.items.iter_mut() {
+        if let ImplItem::Fn(item_fn) = item {
+            item_fn.attrs.retain(|attr| attr.path().is_ident("scpi"));
+            item_fn.block = syn::parse_quote!({});
+        }
+    }
+    for item in input_impl.items.iter_mut() {
+        if let ImplItem::Fn(item_fn) = item {
+            item_fn.attrs.retain(|attr| !attr.path().is_ident("scpi"));
+        }
+    }
+    (input_impl, commands)
+}
+
+fn expand(attrs: Punctuated<Meta, Comma>, mut impls: Vec<ItemImpl>) -> proc_macro2::TokenStream {
     let mut config = Config::default();
+    let mut modules = Vec::new();
 
     // Process configuration options from the attribute parameters
-    for attr in attrs {
-        if attr.is_ident("ErrorCommands") {
+    for attr in &attrs {
+        if attr.path().is_ident("ErrorCommands") {
             config.error_commands = true;
-        } else if attr.is_ident("StandardCommands") {
+        } else if attr.path().is_ident("StandardCommands") {
             config.standard_commands = true;
-        } else if attr.is_ident("StatusCommands") {
+        } else if attr.path().is_ident("StatusCommands") {
             config.status_commands = true;
+        } else if attr.path().is_ident("modules") {
+            let paths = attr
+                .require_list()
+                .and_then(|list| list.parse_args_with(Punctuated::<Path, Comma>::parse_terminated));
+            match paths {
+                Ok(paths) => modules.extend(paths),
+                Err(error) => return error.to_compile_error(),
+            }
         } else {
             return syn::Error::new(attr.span(), "Unknown SCPI interface option.")
-                .to_compile_error()
-                .into();
+                .to_compile_error();
         }
+    }
+
+    // Collect the commands of the next module, which calls `__interface` again
+    if let Some((next, rest)) = modules.split_first() {
+        let attrs = attrs.iter().filter(|attr| !attr.path().is_ident("modules"));
+        return quote! {
+            #next::__microscpi_commands! { [#(#attrs,)* modules(#(#rest),*)] #(#impls)* }
+        };
     }
 
     let mut command_set = CommandSet::new();
@@ -394,9 +491,11 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
         });
     }
 
-    // Extract user-defined SCPI commands from the implementation block
-    if let Err(error) = command_set.extract_commands(&mut input_impl) {
-        return error.into_compile_error().into();
+    // Extract user-defined SCPI commands from the implementation blocks
+    for input_impl in impls.iter_mut() {
+        if let Err(error) = command_set.extract_commands(input_impl) {
+            return error.into_compile_error();
+        }
     }
 
     let mut tree = Tree::new();
@@ -412,8 +511,7 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
                     error,
                 ),
             )
-            .to_compile_error()
-            .into();
+            .to_compile_error();
         }
     }
 
@@ -454,7 +552,7 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
         nodes.push(node_item);
     }
 
-    let impl_ty = input_impl.self_ty.clone();
+    let impl_ty = impls[0].self_ty.clone();
 
     let mut interface_impl: ItemImpl = syn::parse_quote! {
         impl ::microscpi::Interface for #impl_ty {
@@ -469,7 +567,7 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
             ) -> Result<(), ::microscpi::Error> {
                 use ::microscpi::Response;
                 match command_id {
-                    #(#command_items),*,
+                    #(#command_items,)*
                     _ => Err(::microscpi::Error::UndefinedHeader)
                 }
            }
@@ -477,12 +575,10 @@ pub fn interface(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     // Copy the generics from the main implementation
-    interface_impl.generics = input_impl.generics.clone();
+    interface_impl.generics = impls[0].generics.clone();
 
     quote! {
         #(#nodes)*
-        #input_impl
         #interface_impl
     }
-    .into()
 }
