@@ -181,12 +181,28 @@ fn exponent(input: &[u8]) -> ParseResult<'_, &[u8]> {
     Ok((i3, &input[..input.len() - i3.len()]))
 }
 
-/// Parses a decimal number.
+/// Parses the suffix of a decimal number (e.g., "dB", "MHz" or "V/m").
+fn suffix(input: &[u8]) -> ParseResult<'_, &str> {
+    let (i1, _) = optional(whitespace)(input)?;
+    let (i2, _) = satisfy(|c| c.is_ascii_alphabetic() || c == b'/')(i1)?;
+    let (i3, res) = take_while(|c| c.is_ascii_alphanumeric() || c == b'/' || c == b'.')(i2)?;
+    let res = &i1[..res.len() + 1];
+    if res.len() > 12 {
+        return Err(ParseError::FatalError(Error::SuffixTooLong));
+    }
+    Ok((i3, str::from_utf8(res)?))
+}
+
+/// Parses a decimal number with an optional suffix.
 fn decimal_numeric_program_data(input: &[u8]) -> ParseResult<'_, Value<'_>> {
     let (i1, _) = mantissa(input)?;
     let (i2, _) = optional(exponent)(i1)?;
     let res = str::from_utf8(&input[..input.len() - i2.len()])?;
-    Ok((i2, Value::Decimal(res)))
+    match suffix(i2) {
+        Ok((i3, suffix)) => Ok((i3, Value::DecimalSuffix(res, suffix))),
+        Err(ParseError::FatalError(error)) => Err(ParseError::FatalError(error)),
+        Err(_) => Ok((i2, Value::Decimal(res))),
+    }
 }
 
 /// Parses a hexadecimal number.
@@ -549,6 +565,30 @@ mod tests {
     }
 
     #[test]
+    pub fn test_decimal_suffix() {
+        assert_eq!(
+            decimal_numeric_program_data(b"42dB"),
+            Ok((&b""[..], Value::DecimalSuffix("42", "dB")))
+        );
+        assert_eq!(
+            decimal_numeric_program_data(b"-1.5E3 MHz,"),
+            Ok((&b","[..], Value::DecimalSuffix("-1.5E3", "MHz")))
+        );
+        assert_eq!(
+            decimal_numeric_program_data(b"3V/m"),
+            Ok((&b""[..], Value::DecimalSuffix("3", "V/m")))
+        );
+        assert_eq!(
+            decimal_numeric_program_data(b"42 ,"),
+            Ok((&b" ,"[..], Value::Decimal("42")))
+        );
+        assert_eq!(
+            decimal_numeric_program_data(b"42ABCDEFGHIJKLM"),
+            Err(ParseError::FatalError(Error::SuffixTooLong))
+        );
+    }
+
+    #[test]
     pub fn test_arbitrary() {
         assert_eq!(
             arbitrary_program_data(&[
@@ -829,7 +869,7 @@ mod tests {
         );
 
         assert_eq!(
-            parse(&ROOT_NODE, &ROOT_NODE, b"SYST:ERR 123, 456abc\n"),
+            parse(&ROOT_NODE, &ROOT_NODE, b"SYST:ERR 123, 456_abc\n"),
             Err(Error::InvalidCharacter.into())
         );
     }

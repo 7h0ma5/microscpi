@@ -73,6 +73,19 @@ impl TestInterface {
         Ok(a * b)
     }
 
+    #[scpi(cmd = "VALue:GAIN?")]
+    pub async fn value_gain(&mut self, gain: scpi::Suffixed<'_, f64>) -> Result<f64, scpi::Error> {
+        match gain.suffix {
+            None | Some("dB") => Ok(gain.value),
+            Some(_) => Err(scpi::Error::InvalidSuffix),
+        }
+    }
+
+    #[scpi(cmd = "VALue:FLOat?")]
+    pub async fn value_float(&mut self, value: f64) -> Result<f64, scpi::Error> {
+        Ok(value)
+    }
+
     #[scpi(cmd = "ARGument:ARBitrary")]
     pub async fn argument_arbitrary(&mut self, _value: &'_ [u8]) -> Result<(), scpi::Error> {
         self.result = Some(TestResult::Arbitrary(_value.into()));
@@ -157,6 +170,29 @@ async fn test_value_arbitrary() {
     );
 
     assert_eq!(output, b"0,\"\"\n");
+}
+
+#[tokio::test]
+async fn test_value_suffix() {
+    let (mut interface, mut output) = setup();
+
+    interface.run(b"VAL:GAIN? 42dB\n", &mut output).await;
+    interface.run(b"VAL:GAIN? 4.2 dB\n", &mut output).await;
+    interface.run(b"VAL:GAIN? 42\n", &mut output).await;
+    assert_eq!(output, b"42\n4.2\n42\n");
+
+    output.clear();
+    interface.run(b"VAL:GAIN? 42Hz\n", &mut output).await;
+    interface.run(b"VAL:FLO? 42dB\n", &mut output).await;
+    assert!(output.is_empty());
+    assert_eq!(
+        interface.errors.pop_error(),
+        Some(scpi::Error::InvalidSuffix)
+    );
+    assert_eq!(
+        interface.errors.pop_error(),
+        Some(scpi::Error::SuffixNotAllowed)
+    );
 }
 
 #[tokio::test]

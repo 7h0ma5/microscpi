@@ -21,6 +21,11 @@ pub enum Value<'a> {
     /// the command that is called with this value.
     /// Example: 3953.64
     Decimal(&'a str),
+    /// Decimal number with a suffix
+    ///
+    /// A decimal number followed by a suffix like a unit.
+    /// Example: 42dB or 1.5 MHz
+    DecimalSuffix(&'a str, &'a str),
     /// Hexadecimal number
     ///
     /// A number in hexadecimal format. Example `#H3A1CE96`
@@ -88,6 +93,7 @@ macro_rules! impl_try_into_int {
                     Value::Octal(data) => {
                         <$type>::from_str_radix(data, 8).or(Err(Error::NumericDataError))
                     }
+                    Value::DecimalSuffix(..) => Err(Error::SuffixNotAllowed),
                     _ => Err(Error::DataTypeError),
                 }
             }
@@ -144,6 +150,7 @@ impl TryInto<f32> for &Value<'_> {
     fn try_into(self) -> Result<f32, Self::Error> {
         match self {
             Value::Decimal(data) => data.parse().or(Err(Error::NumericDataError)),
+            Value::DecimalSuffix(..) => Err(Error::SuffixNotAllowed),
             _ => Err(Error::DataTypeError),
         }
     }
@@ -163,6 +170,7 @@ impl TryInto<f64> for &Value<'_> {
     fn try_into(self) -> Result<f64, Self::Error> {
         match self {
             Value::Decimal(data) => data.parse().or(Err(Error::NumericDataError)),
+            Value::DecimalSuffix(..) => Err(Error::SuffixNotAllowed),
             _ => Err(Error::DataTypeError),
         }
     }
@@ -173,6 +181,37 @@ impl TryInto<f64> for Value<'_> {
 
     fn try_into(self) -> Result<f64, Self::Error> {
         (&self).try_into()
+    }
+}
+
+/// Decimal number with an optional suffix
+///
+/// Use it as command argument to accept a suffix like a unit, e.g. `42dB`.
+/// The suffix is not interpreted, the command handler decides which suffixes
+/// are allowed.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Suffixed<'a, T> {
+    pub value: T,
+    pub suffix: Option<&'a str>,
+}
+
+impl<'a, T> TryInto<Suffixed<'a, T>> for &Value<'a>
+where
+    for<'b> &'b Value<'a>: TryInto<T, Error = Error>,
+{
+    type Error = Error;
+
+    fn try_into(self) -> Result<Suffixed<'a, T>, Self::Error> {
+        match self {
+            Value::DecimalSuffix(value, suffix) => Ok(Suffixed {
+                value: TryInto::<T>::try_into(&Value::Decimal(value))?,
+                suffix: Some(suffix),
+            }),
+            value => Ok(Suffixed {
+                value: TryInto::<T>::try_into(value)?,
+                suffix: None,
+            }),
+        }
     }
 }
 
@@ -286,6 +325,28 @@ mod tests {
         assert_eq!(
             Value::String("123.45").try_into(),
             Err::<f32, Error>(Error::DataTypeError)
+        );
+    }
+
+    #[test]
+    pub fn test_suffixed() {
+        assert_eq!(
+            (&Value::DecimalSuffix("42", "dB")).try_into(),
+            Ok(Suffixed {
+                value: 42.0f64,
+                suffix: Some("dB")
+            })
+        );
+        assert_eq!(
+            (&Value::Decimal("42")).try_into(),
+            Ok(Suffixed {
+                value: 42i32,
+                suffix: None
+            })
+        );
+        assert_eq!(
+            Value::DecimalSuffix("42", "dB").try_into(),
+            Err::<f64, Error>(Error::SuffixNotAllowed)
         );
     }
 

@@ -133,7 +133,7 @@ pub use registers::StatusRegisters;
 pub use response::{Arbitrary, Characters, Response, Write};
 #[doc(hidden)]
 pub use tree::Node;
-pub use value::Value;
+pub use value::{Suffixed, Value};
 
 /// Reference identifier of a command or query
 ///
